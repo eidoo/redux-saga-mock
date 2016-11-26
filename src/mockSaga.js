@@ -33,9 +33,9 @@ function recursive(matcher) {
   return rmatcher
 }
 
-function findAllIndexes (array, matcher, fromPos=0) {
+function findAllIndexes (array, matcher, fromPos=0, last=(array.length-1)) {
   const indexes = []
-  for (let i=fromPos; i < array.length; i++) {
+  for (let i=fromPos; i <= last; i++) {
     if (matcher(array[i])) indexes.push(i)
   }
   return indexes
@@ -66,24 +66,27 @@ export function mockSaga (saga) {
     return current.value
   }
 
-  const findEffect = (effect, fromPos = 0) => findAllIndexes(effects, recursive(matchers.effect(effect)), fromPos)
-  const findPuttedAction = (action, fromPos = 0) => findAllIndexes(effects, recursive(matchers.putAction(action)), fromPos)
-  const findTakenAction = (pattern, fromPos = 0) => findAllIndexes(effects, recursive(matchers.takeAction(pattern)), fromPos)
-  const findCall = (fn, fromPos = 0) => findAllIndexes(effects, recursive(matchers.call(fn)), fromPos)
-  const findCallWithArgs = (fn, args, fromPos = 0) => findAllIndexes(effects, recursive(matchers.callWithArgs(fn, args)), fromPos)
-  const findCallWithExactArgs = (fn, args, fromPos = 0) => findAllIndexes(effects, recursive(matchers.callWithExactArgs(fn, args)), fromPos)
+  const findEffect = (effect, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.effect(effect)), fromPos, last)
+  const findPuttedAction = (action, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.putAction(action)), fromPos, last)
+  const findTakenAction = (pattern, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.takeAction(pattern)), fromPos, last)
+  const findCall = (fn, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.call(fn)), fromPos, last)
+  const findCallWithArgs = (fn, args, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.callWithArgs(fn, args)), fromPos, last)
+  const findCallWithExactArgs = (fn, args, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.callWithExactArgs(fn, args)), fromPos, last)
 
   function createResult (indexes) {
     const isPresent = indexes.length > 0
     const filteredEffects = indexes.map(i => effects[i])
-    const next = isPresent ? indexes[0] + 1 : 0
     const count = indexes.length
+    const next = isPresent ? indexes[0] + 1 : 0
+    const prev = isPresent ? indexes[count - 1] - 1 : 0
     return {
       indexes,
       effects: filteredEffects,
       isPresent,
       count,
       instance: number => createResult(number <= count ? [indexes[number]] : []),
+      first: () => createResult(isPresent ? [indexes[0]] : []),
+      last: () => createResult(isPresent ? [indexes[count - 1]] : []),
       followedBy: {
         effect: effect => createResult(isPresent ? findEffect(effect, next) : []),
         puttedAction: action => createResult(isPresent ? findPuttedAction(action, next) : []),
@@ -91,6 +94,14 @@ export function mockSaga (saga) {
         call: fn => createResult(isPresent ? findCall(fn, next) : []),
         callWithArgs: (fn, ...args) => createResult(isPresent ? findCallWithArgs(fn, args, next) : []),
         callWithExactArgs: (fn, ...args) => createResult(isPresent ? findCallWithExactArgs(fn, args, next) : [])
+      },
+      precededBy: {
+        effect: effect => createResult(isPresent ? findEffect(effect, 0, prev) : []),
+        puttedAction: action => createResult(isPresent ? findPuttedAction(action, 0, prev) : []),
+        takenAction: pattern => createResult(isPresent ? findTakenAction(pattern, 0, prev) : []),
+        call: fn => createResult(isPresent ? findCall(fn, 0, prev) : []),
+        callWithArgs: (fn, ...args) => createResult(isPresent ? findCallWithArgs(fn, args, 0, prev) : []),
+        callWithExactArgs: (fn, ...args) => createResult(isPresent ? findCallWithExactArgs(fn, args, 0, prev) : [])
       }
     }
   }
