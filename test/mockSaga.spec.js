@@ -1,7 +1,5 @@
 import _ from 'lodash'
-import chai, { expect, assert } from 'chai'
-// import chaiAsPromised   from 'chai-as-promised'
-// chai.use(chaiAsPromised)
+import { expect, assert } from 'chai'
 import { combineReducers, createStore, applyMiddleware } from 'redux'
 import createSagaMiddleware from 'redux-saga'
 import * as effects from 'redux-saga/effects'
@@ -84,6 +82,9 @@ describe('mock saga', () => {
       assert.equal(mock.calledWithArgs(someObj.method, 1).count, 2)
       assert.equal(mock.calledWithArgs(someObj.method, 1, 2).count, 1)
       assert.isFalse(mock.calledWithArgs(someObj.method, 3).isPresent)
+      assert.isTrue(mock.calledWithExactArgs(someObj.method).isPresent)
+      assert.isFalse(mock.calledWithExactArgs(someObj.method, 1).isPresent)
+      assert.isTrue(mock.calledWithExactArgs(someObj.method, 1, 2).isPresent)
     })
   })
 
@@ -177,14 +178,24 @@ describe('mock saga', () => {
     })
     .onCallWithArgs(someObj.method, [1], () => done('invalid call [1]'))
     .onCallWithArgs(someObj.method, [2,3,4], () => done('invalid call [2,3,4]'))
-    .onCallWithArgs(someObj.method, [], () => done('invalid call []'))
     .onCallWithArgs(someObj.method, [2,3], done)
     sagaMiddleware.run(mock)
   })
 
+  it('should listen call with exact args', (done) => {
+    const mock = mockSaga(function * () {
+      yield 'test'
+      yield effects.call(someObj.method, 2, 3)
+    })
+    .onCallWithExactArgs(someObj.method, [], () => done('invalid call []'))
+    .onCallWithExactArgs(someObj.method, [1], () => done('invalid call [1]'))
+    .onCallWithExactArgs(someObj.method, [2], () => done('invalid call [2]'))
+    .onCallWithExactArgs(someObj.method, [2,3,4], () => done('invalid call [2,3,4]'))
+    .onCallWithExactArgs(someObj.method, [2,3], done)
+    sagaMiddleware.run(mock)
+  })
 
-
-  it('serius saga test', () => {
+  it('test', () => {
     let flag = false;
     let obj = {
       pippo (arg) {
@@ -245,7 +256,7 @@ describe('mock saga', () => {
 
       r = yield effects.race({
         a: effects.call(obj.pippo, 100),
-        a: effects.call(obj.pippo, 200),
+        c: effects.call(obj.pippo, 200),
         b: effects.take(otherActionType),
       })
       console.log('-- result', r)

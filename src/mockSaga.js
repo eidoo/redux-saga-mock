@@ -16,7 +16,9 @@ export const matchers = {
   call: fn =>
     effect => isCALL(effect) && effect.CALL.fn === fn,
   callWithArgs: (fn, args) =>
-    effect => isCALL(effect) && effect.CALL.fn === fn && _.isMatch(effect.CALL.args, args)
+    effect => isCALL(effect) && effect.CALL.fn === fn && _.isMatch(effect.CALL.args, args),
+  callWithExactArgs: (fn, args) =>
+    effect => isCALL(effect) && effect.CALL.fn === fn && _.isEqual(effect.CALL.args, args)
 }
 
 function recursive(matcher) {
@@ -69,6 +71,7 @@ export function mockSaga (saga) {
   const findTakenAction = (pattern, fromPos = 0) => findAllIndexes(effects, recursive(matchers.takeAction(pattern)), fromPos)
   const findCall = (fn, fromPos = 0) => findAllIndexes(effects, recursive(matchers.call(fn)), fromPos)
   const findCallWithArgs = (fn, args, fromPos = 0) => findAllIndexes(effects, recursive(matchers.callWithArgs(fn, args)), fromPos)
+  const findCallWithExactArgs = (fn, args, fromPos = 0) => findAllIndexes(effects, recursive(matchers.callWithExactArgs(fn, args)), fromPos)
 
   function createResult (indexes) {
     const isPresent = indexes.length > 0
@@ -86,7 +89,8 @@ export function mockSaga (saga) {
         puttedAction: action => createResult(isPresent ? findPuttedAction(action, next) : []),
         takenAction: pattern => createResult(isPresent ? findTakenAction(pattern, next) : []),
         call: fn => createResult(isPresent ? findCall(fn, next) : []),
-        callWithArgs: (fn, ...args) => createResult(isPresent ? findCallWithArgs(fn, args, next) : [])
+        callWithArgs: (fn, ...args) => createResult(isPresent ? findCallWithArgs(fn, args, next) : []),
+        callWithExactArgs: (fn, ...args) => createResult(isPresent ? findCallWithExactArgs(fn, args, next) : [])
       }
     }
   }
@@ -96,27 +100,29 @@ export function mockSaga (saga) {
     return mock
   }
 
+  function createStub (matcher, stub) {
+    if (!_.isFunction(stub)) throw new Error('stub function required')
+    stubs.push({ match: matcher, stub })
+    return mock
+  }
+
   return Object.assign(mock, {
     generatedEffect: (effect) => createResult(findEffect(effect)),
     puttedAction: (action) => createResult(findPuttedAction(action)),
     takenAction: (pattern) => createResult(findTakenAction(pattern)),
     called: (fn) => createResult(findCall(fn)),
     calledWithArgs: (fn, ...args) => createResult(findCallWithArgs(fn, args)),
+    calledWithExactArgs: (fn, ...args) => createResult(findCallWithExactArgs(fn, args)),
 
     onEffect: (effect, callback) => createListener(callback, matchers.effect, effect),
     onTakeAction: (pattern, callback)  => createListener(callback, matchers.takeAction, pattern),
     onPuttedAction: (action, callback)  => createListener(callback, matchers.putAction, action),
     onCall: (fn, callback) => createListener(callback, matchers.call, fn),
     onCallWithArgs: (fn, args, callback) => createListener(callback, matchers.callWithArgs, fn, args),
-    stubCall(fn, stub){
-      if (!stub) throw new Error('stub function required')
-      stubs.push({ match: matchers.call(fn), stub })
-      return mock
-    },
-    stubCallWithArgs(fn, args, stub){
-      if (!stub) throw new Error('stub function required')
-      stubs.push({ match: matchers.callWithArgs(fn, args), stub })
-      return mock
-    },
+    onCallWithExactArgs: (fn, args, callback) => createListener(callback, matchers.callWithExactArgs, fn, args),
+
+    stubCall: (fn, stub) => createStub(matchers.call(fn), stub),
+    stubCallWithArgs: (fn, args, stub) => createStub(matchers.callWithArgs(fn, args), stub),
+    stubCallWithExactArgs: (fn, args, stub) => createStub(matchers.callWithExactArgs(fn, args), stub),
   })
 }
