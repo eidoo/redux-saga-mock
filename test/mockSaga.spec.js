@@ -117,6 +117,22 @@ describe('mock saga', () => {
     })
   })
 
+  it('should find in deep nested effects', () => {
+    const mock = mockSaga(function * () {
+      yield 'test'
+      let selectEffect = effects.select(s => s.b)
+      yield effects.race({
+        a: [effects.put(someAction), selectEffect],
+        b: [selectEffect, effects.put(otherAction)]
+      })
+    })
+    return sagaMiddleware.run(mock).done.then(() => {
+      assert.isTrue(mock.puttedAction(someAction).isPresent)
+      assert.isTrue(mock.puttedAction(otherAction).isPresent)
+      assert.isFalse(mock.called(someObj.method).isPresent)
+    })
+  })
+
   it('should listen effect', (done) => {
     const effect = effects.select(s => s.a)
     const mock = mockSaga(function * () {

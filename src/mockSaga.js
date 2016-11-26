@@ -3,6 +3,7 @@ import _ from 'lodash'
 const isPUT = (effect) => _.isObject(effect) && effect['@@redux-saga/IO'] && effect.PUT
 const isTAKE = (effect) => _.isObject(effect) && effect['@@redux-saga/IO'] && effect.TAKE
 const isCALL = (effect) => _.isObject(effect) && effect['@@redux-saga/IO'] && effect.CALL
+const isRACE = (effect) => _.isObject(effect) && effect['@@redux-saga/IO'] && effect.RACE
 
 export const matchers = {
   putAction: (action) => _.isString(action)
@@ -18,7 +19,17 @@ export const matchers = {
     effect => isCALL(effect) && effect.CALL.fn === fn && _.isMatch(effect.CALL.args, args)
 }
 
-
+function recursive(matcher) {
+  const rmatcher = (effect) => {
+    if (matcher(effect)) return true
+    else if (isRACE(effect)) {
+      return !!_.find(effect.RACE, rmatcher)
+    } else if (_.isArray(effect)) {
+      return !!effect.find(rmatcher)
+    }
+  }
+  return rmatcher
+}
 
 function findAllIndexes (array, matcher, fromPos=0) {
   const indexes = []
@@ -41,7 +52,7 @@ export function mockSaga (saga) {
       const effect = current.value
       console.log('>> effect:', effect)
       effects.push(effect)
-      listeners.forEach((l) => l.match(effect) && setTimeout(l.callback))
+      listeners.forEach((l) => recursive(l.match)(effect) && setTimeout(l.callback))
       const stub = stubs.find((s) => s.match(effect))
       try {
         const data = stub ? stub.stub() : (yield effect)
@@ -53,11 +64,11 @@ export function mockSaga (saga) {
     return current.value
   }
 
-  const findEffect = (effect, fromPos = 0) => findAllIndexes(effects, matchers.effect(effect), fromPos)
-  const findPuttedAction = (action, fromPos = 0) => findAllIndexes(effects, matchers.putAction(action), fromPos)
-  const findTakenAction = (pattern, fromPos = 0) => findAllIndexes(effects, matchers.takeAction(pattern), fromPos)
-  const findCall = (fn, fromPos = 0) => findAllIndexes(effects, matchers.call(fn), fromPos)
-  const findCallWithArgs = (fn, args, fromPos = 0) => findAllIndexes(effects, matchers.callWithArgs(fn, args), fromPos)
+  const findEffect = (effect, fromPos = 0) => findAllIndexes(effects, recursive(matchers.effect(effect)), fromPos)
+  const findPuttedAction = (action, fromPos = 0) => findAllIndexes(effects, recursive(matchers.putAction(action)), fromPos)
+  const findTakenAction = (pattern, fromPos = 0) => findAllIndexes(effects, recursive(matchers.takeAction(pattern)), fromPos)
+  const findCall = (fn, fromPos = 0) => findAllIndexes(effects, recursive(matchers.call(fn)), fromPos)
+  const findCallWithArgs = (fn, args, fromPos = 0) => findAllIndexes(effects, recursive(matchers.callWithArgs(fn, args)), fromPos)
 
   function createResult (indexes) {
     const isPresent = indexes.length > 0
