@@ -83,6 +83,7 @@ export function mockSaga (saga) {
       indexes,
       effects: filteredEffects,
       isPresent,
+      notPresent: !isPresent,
       count,
       instance: number => createResult(number <= count ? [indexes[number]] : []),
       first: () => createResult(isPresent ? [indexes[0]] : []),
@@ -118,6 +119,7 @@ export function mockSaga (saga) {
   }
 
   return Object.assign(mock, {
+    allEffects: () => createResult(Array.from(effects.keys())),
     generatedEffect: (effect) => createResult(findEffect(effect)),
     puttedAction: (action) => createResult(findPuttedAction(action)),
     takenAction: (pattern) => createResult(findTakenAction(pattern)),
