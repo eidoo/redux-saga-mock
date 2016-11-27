@@ -29,8 +29,21 @@ function recursive(matcher) {
     } else if (_.isArray(effect)) {
       return !!effect.find(rmatcher)
     }
+    return false
   }
   return rmatcher
+}
+
+function rreplace (matcher, effect, replEffCreator) {
+  if (matcher(effect)) return replEffCreator(effect)
+  else if (isRACE(effect)) {
+    return Object.assign({}, effect, {
+      RACE: _.mapValues(effect.RACE, (e) => rreplace(matcher, e, replEffCreator))
+    })
+  } else if (_.isArray(effect)) {
+    return _.map(effect, (e) => rreplace(matcher, e, replEffCreator))
+  }
+  return effect
 }
 
 function findAllIndexes (array, matcher, fromPos=0, last=(array.length-1)) {
@@ -55,9 +68,9 @@ export function mockSaga (saga) {
       console.log('>> effect:', effect)
       effects.push(effect)
       listeners.forEach((l) => recursive(l.match)(effect) && setTimeout(l.callback))
-      const stub = stubs.find((s) => s.match(effect))
+      const stubbedEffect = stubs.reduce((seffect, stub) => rreplace(stub.match, seffect, stub.stubCreator), effect)
       try {
-        const data = stub ? stub.stub() : (yield effect)
+        const data = yield stubbedEffect
         current = g.next(data)
       } catch (error) {
         current = g.throw(error)
@@ -112,10 +125,16 @@ export function mockSaga (saga) {
     return mock
   }
 
-  function createStub (matcher, stub) {
-    if (!_.isFunction(stub)) throw new Error('stub function required')
-    stubs.push({ match: matcher, stub })
+  function createStub (matcher, stubCreator) {
+    if (!_.isFunction(stubCreator)) throw new Error('stub function required')
+    stubs.push({ match: matcher, stubCreator })
     return mock
+  }
+  function stubCallCreator(newTargetFn) {
+    return effect => {
+      let cloned = _.cloneDeep(effect)
+      let newEff = _.set(cloned, 'CALL.fn', newTargetFn)
+      return newEff }
   }
 
   return Object.assign(mock, {
@@ -134,8 +153,8 @@ export function mockSaga (saga) {
     onCallWithArgs: (fn, args, callback) => createListener(callback, matchers.callWithArgs, fn, args),
     onCallWithExactArgs: (fn, args, callback) => createListener(callback, matchers.callWithExactArgs, fn, args),
 
-    stubCall: (fn, stub) => createStub(matchers.call(fn), stub),
-    stubCallWithArgs: (fn, args, stub) => createStub(matchers.callWithArgs(fn, args), stub),
-    stubCallWithExactArgs: (fn, args, stub) => createStub(matchers.callWithExactArgs(fn, args), stub),
+    stubCall: (fn, stub) => createStub(matchers.call(fn), stubCallCreator(stub)),
+    stubCallWithArgs: (fn, args, stub) => createStub(matchers.callWithArgs(fn, args), stubCallCreator(stub)),
+    stubCallWithExactArgs: (fn, args, stub) => createStub(matchers.callWithExactArgs(fn, args), stubCallCreator(stub)),
   })
 }

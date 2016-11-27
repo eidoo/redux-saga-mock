@@ -195,6 +195,83 @@ describe('mock saga', () => {
     sagaMiddleware.run(mock)
   })
 
+  it('should stub call', (done) => {
+    const toStub = () => done(new Error('toStub() should not be called'))
+    const mock = mockSaga(function * () {
+      yield 'test'
+      yield effects.call(toStub)
+    })
+      .stubCall(toStub, () => done())
+    sagaMiddleware.run(mock)
+  })
+
+  it('should stub call in parallel', (done) => {
+    let toNotStubOk = false
+    let toStubOk = false
+    const toStub = () => done(new Error('toStub() should not be called'))
+    const toNotStub = () => toNotStubOk = true
+    const mock = mockSaga(function * () {
+      yield 'test'
+      yield [
+        effects.call(toStub),
+        effects.call(toNotStub)
+      ]
+      yield effects.call(() => {
+        assert.isTrue(toStubOk)
+        assert.isTrue(toNotStubOk)
+        done()
+      })
+    })
+    .stubCall(toStub, () => toStubOk = true)
+    sagaMiddleware.run(mock)
+  })
+
+  it('should stub call in race', (done) => {
+    let toNotStubOk = false
+    let toStubOk = false
+    const toStub = () => done(new Error('toStub() should not be called'))
+    const toNotStub = () => toNotStubOk = true
+    const mock = mockSaga(function * () {
+      yield 'test'
+      yield effects.race({
+        toStub: effects.call(toStub),
+        toNotStub: effects.call(toNotStub)
+      })
+      yield effects.call(() => setTimeout(() => {
+        assert.isTrue(toStubOk)
+        assert.isTrue(toNotStubOk)
+        done()
+      }))
+    })
+    .stubCall(toStub, () => {
+      toStubOk = true
+      return new Promise((resolve, reject)=>{})
+    })
+    sagaMiddleware.run(mock)
+  })
+
+  it('should stub call in nested effects', (done) => {
+    let toStubOk = false
+    let toStub2Ok = false
+    const toStub = () => done(new Error('toStub() should not be called'))
+    const toStub2 = () => done(new Error('toStub2() should not be called'))
+    const mock = mockSaga(function * () {
+      yield 'test'
+      yield [
+        [effects.put(someAction), effects.call(toStub)],
+        effects.race({ one: effects.take(someActionType), two: effects.call(toStub2) })
+      ]
+      yield effects.call(() => {
+        assert.isTrue(toStubOk)
+        assert.isTrue(toStub2Ok)
+        done()
+      })
+    })
+    .stubCall(toStub, () => toStubOk = true)
+    .stubCall(toStub2, () => toStub2Ok = true)
+    sagaMiddleware.run(mock)
+  })
+
   it('test', () => {
     let flag = false;
     let obj = {
