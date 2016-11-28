@@ -127,7 +127,13 @@ export function mockSaga (saga) {
 
   function createStub (matcher, stubCreator) {
     if (!_.isFunction(stubCreator)) throw new Error('stub function required')
-    stubs.push({ match: matcher, stubCreator })
+    const s = { match: matcher, stubCreator }
+    const pos = _.findIndex(stubs, matcher)
+    if (pos !== -1) {
+      stubs[pos] = s
+    } else {
+      stubs.push(s)
+    }
     return mock
   }
   function stubCallCreator(newTargetFn) {
@@ -156,5 +162,7 @@ export function mockSaga (saga) {
     stubCall: (fn, stub) => createStub(matchers.call(fn), stubCallCreator(stub)),
     stubCallWithArgs: (fn, args, stub) => createStub(matchers.callWithArgs(fn, args), stubCallCreator(stub)),
     stubCallWithExactArgs: (fn, args, stub) => createStub(matchers.callWithExactArgs(fn, args), stubCallCreator(stub)),
+    resetStubs: () => stubs.length = 0,
+    clearStoredEffects: () => effects.length = 0
   })
 }

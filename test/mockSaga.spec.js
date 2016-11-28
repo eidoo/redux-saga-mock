@@ -11,7 +11,8 @@ describe('mock saga', () => {
   const someInitialState = { someKey: someInitialValue }
   const someActionType = 'SOME_ACTION_TYPE'
   const otherActionType = 'OTHER_ACTION_TYPE'
-  const someAction = { type: someActionType }
+  const someAction = { type: someActionType, arg: 1 }
+  const someAction2 = { type: someActionType, arg: 2 }
   const otherAction = { type: otherActionType }
 
   const someObj = {
@@ -51,6 +52,17 @@ describe('mock saga', () => {
     return sagaMiddleware.run(mock).done.then(() => {
       assert.isTrue(mock.puttedAction(someAction).isPresent)
       assert.isFalse(mock.puttedAction(otherAction).isPresent)
+    })
+  })
+
+  it('should find put action type', () => {
+    const mock = mockSaga(function * () {
+      yield 'test'
+      yield effects.put(someAction)
+    })
+    return sagaMiddleware.run(mock).done.then(() => {
+      assert.isTrue(mock.puttedAction(someActionType).isPresent)
+      assert.isFalse(mock.puttedAction(otherActionType).isPresent)
     })
   })
 
@@ -149,7 +161,17 @@ describe('mock saga', () => {
       yield 'test'
       yield effects.put(someAction)
     })
-    mock.onPuttedAction(someAction, done)
+    mock.onPuttedAction(someAction2, () => done('invalid match on someAction2'))
+    mock.onPuttedAction(someAction, () => done())
+    sagaMiddleware.run(mock)
+  })
+
+  it('should listen put action type', (done) => {
+    const mock = mockSaga(function * () {
+      yield 'test'
+      yield effects.put(someAction)
+    })
+    mock.onPuttedAction(someActionType, () => done())
     sagaMiddleware.run(mock)
   })
 
@@ -202,6 +224,24 @@ describe('mock saga', () => {
       yield effects.call(toStub)
     })
       .stubCall(toStub, () => done())
+    sagaMiddleware.run(mock)
+  })
+
+  it('stub throw should be tranfered to the orginal saga', (done) => {
+    const toStub = () => done(new Error('toStub() should not be called'))
+    const error = new Error('test')
+    const mock = mockSaga(function * () {
+      try {
+        yield 'test'
+        yield effects.call(toStub)
+      } catch (e) {
+        assert.equal(e, error)
+        done()
+      }
+    })
+    .stubCall(toStub, () => {
+      throw error
+    })
     sagaMiddleware.run(mock)
   })
 
