@@ -89,44 +89,56 @@ function mockIterator (g) {
 
   const mockedIterator = mockedGenerator()
 
-  const findEffect = (effect, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.effect(effect)), fromPos, last)
-  const findPuttedAction = (action, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.putAction(action)), fromPos, last)
-  const findTakenAction = (pattern, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.takeAction(pattern)), fromPos, last)
-  const findCall = (fn, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.call(fn)), fromPos, last)
-  const findCallWithArgs = (fn, args, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.callWithArgs(fn, args)), fromPos, last)
-  const findCallWithExactArgs = (fn, args, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.callWithExactArgs(fn, args)), fromPos, last)
+  function createFiltersMethods (effects) {
+    const findEffect = (effect, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.effect(effect)), fromPos, last)
+    const findPuttedAction = (action, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.putAction(action)), fromPos, last)
+    const findTakenAction = (pattern, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.takeAction(pattern)), fromPos, last)
+    const findCall = (fn, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.call(fn)), fromPos, last)
+    const findCallWithArgs = (fn, args, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.callWithArgs(fn, args)), fromPos, last)
+    const findCallWithExactArgs = (fn, args, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.callWithExactArgs(fn, args)), fromPos, last)
 
-  function createResult (indexes) {
-    const isPresent = indexes.length > 0
-    const filteredEffects = indexes.map(i => effects[i])
-    const count = indexes.length
-    const next = isPresent ? indexes[0] + 1 : 0
-    const prev = isPresent ? indexes[count - 1] - 1 : 0
-    return {
-      indexes,
-      effects: filteredEffects,
-      isPresent,
-      notPresent: !isPresent,
-      count,
-      instance: number => createResult(number <= count ? [indexes[number]] : []),
-      first: () => createResult(isPresent ? [indexes[0]] : []),
-      last: () => createResult(isPresent ? [indexes[count - 1]] : []),
-      followedBy: {
-        effect: effect => createResult(isPresent ? findEffect(effect, next) : []),
-        puttedAction: action => createResult(isPresent ? findPuttedAction(action, next) : []),
-        takenAction: pattern => createResult(isPresent ? findTakenAction(pattern, next) : []),
-        call: fn => createResult(isPresent ? findCall(fn, next) : []),
-        callWithArgs: (fn, ...args) => createResult(isPresent ? findCallWithArgs(fn, args, next) : []),
-        callWithExactArgs: (fn, ...args) => createResult(isPresent ? findCallWithExactArgs(fn, args, next) : [])
-      },
-      precededBy: {
-        effect: effect => createResult(isPresent ? findEffect(effect, 0, prev) : []),
-        puttedAction: action => createResult(isPresent ? findPuttedAction(action, 0, prev) : []),
-        takenAction: pattern => createResult(isPresent ? findTakenAction(pattern, 0, prev) : []),
-        call: fn => createResult(isPresent ? findCall(fn, 0, prev) : []),
-        callWithArgs: (fn, ...args) => createResult(isPresent ? findCallWithArgs(fn, args, 0, prev) : []),
-        callWithExactArgs: (fn, ...args) => createResult(isPresent ? findCallWithExactArgs(fn, args, 0, prev) : [])
+    function createResult (indexes) {
+      const isPresent = indexes.length > 0
+      const filteredEffects = indexes.map(i => effects[i])
+      const count = indexes.length
+      const next = isPresent ? indexes[0] + 1 : 0
+      const prev = isPresent ? indexes[count - 1] - 1 : 0
+      return {
+        indexes,
+        effects: filteredEffects,
+        isPresent,
+        notPresent: !isPresent,
+        count,
+        instance: number => createResult(number <= count ? [indexes[number]] : []),
+        first: () => createResult(isPresent ? [indexes[0]] : []),
+        last: () => createResult(isPresent ? [indexes[count - 1]] : []),
+        followedBy: {
+          effect: effect => createResult(isPresent ? findEffect(effect, next) : []),
+          puttedAction: action => createResult(isPresent ? findPuttedAction(action, next) : []),
+          takenAction: pattern => createResult(isPresent ? findTakenAction(pattern, next) : []),
+          call: fn => createResult(isPresent ? findCall(fn, next) : []),
+          callWithArgs: (fn, ...args) => createResult(isPresent ? findCallWithArgs(fn, args, next) : []),
+          callWithExactArgs: (fn, ...args) => createResult(isPresent ? findCallWithExactArgs(fn, args, next) : [])
+        },
+        precededBy: {
+          effect: effect => createResult(isPresent ? findEffect(effect, 0, prev) : []),
+          puttedAction: action => createResult(isPresent ? findPuttedAction(action, 0, prev) : []),
+          takenAction: pattern => createResult(isPresent ? findTakenAction(pattern, 0, prev) : []),
+          call: fn => createResult(isPresent ? findCall(fn, 0, prev) : []),
+          callWithArgs: (fn, ...args) => createResult(isPresent ? findCallWithArgs(fn, args, 0, prev) : []),
+          callWithExactArgs: (fn, ...args) => createResult(isPresent ? findCallWithExactArgs(fn, args, 0, prev) : [])
+        }
       }
+    }
+
+    return {
+      allEffects: () => createResult(Array.from(effects.keys())),
+      generatedEffect: (effect) => createResult(findEffect(effect)),
+      puttedAction: (action) => createResult(findPuttedAction(action)),
+      takenAction: (pattern) => createResult(findTakenAction(pattern)),
+      called: (fn) => createResult(findCall(fn)),
+      calledWithArgs: (fn, ...args) => createResult(findCallWithArgs(fn, args)),
+      calledWithExactArgs: (fn, ...args) => createResult(findCallWithExactArgs(fn, args)),
     }
   }
 
@@ -153,15 +165,8 @@ function mockIterator (g) {
       return newEff }
   }
 
-  const filtersMethods = {
-    allEffects: () => createResult(Array.from(effects.keys())),
-    generatedEffect: (effect) => createResult(findEffect(effect)),
-    puttedAction: (action) => createResult(findPuttedAction(action)),
-    takenAction: (pattern) => createResult(findTakenAction(pattern)),
-    called: (fn) => createResult(findCall(fn)),
-    calledWithArgs: (fn, ...args) => createResult(findCallWithArgs(fn, args)),
-    calledWithExactArgs: (fn, ...args) => createResult(findCallWithExactArgs(fn, args)),
-  }
+  const filtersMethods = createFiltersMethods(effects)
+
   const chainableMethods = {
     onEffect: (effect, callback) => createListener(callback, matchers.effect, effect),
     onTakeAction: (pattern, callback)  => createListener(callback, matchers.takeAction, pattern),
