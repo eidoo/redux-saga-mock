@@ -62,6 +62,48 @@ export function mockSaga (saga) {
   return mockIterator(g).generator
 }
 
+const chainableMethods = [
+  'onEffect',
+  'onTakeAction',
+  'onPuttedAction',
+  'onCall',
+  'onCallWithArgs',
+  'onCallWithExactArgs',
+  'stubCall',
+  'stubCallWithArgs',
+  'stubCallWithExactArgs',
+  'resetStubs',
+  'clearStoredEffects'
+]
+
+function mockArray (sagas) {
+  if (!Array.isArray(sagas)) throw new Error('sagas must be an array')
+  if (sagas.length === 0) return sagas
+
+  const mockedArray = sagas.map(s => mockSaga(s))
+  chainableMethods.forEach(name => {
+    Object.defineProperty(mockedArray, name, {
+      configurable: false,
+      enumerable: false,
+      writable: false,
+      value: (...args) => {
+        mockedArray.forEach(s => s[name](...args))
+        return mockedArray
+      }
+    })
+  })
+  const filtersMethods = createFiltersMethods(() => mockedArray.map(m => m.allEffects().effects))
+  _.forEach(filtersMethods, (fn, name) => {
+    Object.defineProperty(mockedArray, name, {
+      configurable: false,
+      enumerable: false,
+      writable: false,
+      value: fn
+    })
+  })
+  return mockedArray
+}
+
 function mockIterator (g) {
   if (!g.next) throw new Error('invalid iterator')
 
@@ -136,17 +178,21 @@ function mockIterator (g) {
   return Object.assign(mockedIterator, filtersMethods, chainableMethods, { generator: mockedGenerator })
 }
 
-function createFiltersMethods (effects) {
-  const findEffect = (effect, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.effect(effect)), fromPos, last)
-  const findPuttedAction = (action, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.putAction(action)), fromPos, last)
-  const findTakenAction = (pattern, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.takeAction(pattern)), fromPos, last)
-  const findCall = (fn, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.call(fn)), fromPos, last)
-  const findCallWithArgs = (fn, args, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.callWithArgs(fn, args)), fromPos, last)
-  const findCallWithExactArgs = (fn, args, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.callWithExactArgs(fn, args)), fromPos, last)
+function createFiltersMethods (getEffects) {
+  if (Array.isArray(getEffects)) {
+    const effects = getEffects
+    getEffects = () => effects
+  }
+  const findEffect = (effect, fromPos = 0, last) => findAllIndexes(getEffects(), recursive(matchers.effect(effect)), fromPos, last)
+  const findPuttedAction = (action, fromPos = 0, last) => findAllIndexes(getEffects(), recursive(matchers.putAction(action)), fromPos, last)
+  const findTakenAction = (pattern, fromPos = 0, last) => findAllIndexes(getEffects(), recursive(matchers.takeAction(pattern)), fromPos, last)
+  const findCall = (fn, fromPos = 0, last) => findAllIndexes(getEffects(), recursive(matchers.call(fn)), fromPos, last)
+  const findCallWithArgs = (fn, args, fromPos = 0, last) => findAllIndexes(getEffects(), recursive(matchers.callWithArgs(fn, args)), fromPos, last)
+  const findCallWithExactArgs = (fn, args, fromPos = 0, last) => findAllIndexes(getEffects(), recursive(matchers.callWithExactArgs(fn, args)), fromPos, last)
 
   function createResult (indexes) {
     const isPresent = indexes.length > 0
-    const filteredEffects = indexes.map(i => effects[i])
+    const filteredEffects = indexes.map(i => getEffects()[i])
     const count = indexes.length
     const next = isPresent ? indexes[0] + 1 : 0
     const prev = isPresent ? indexes[count - 1] - 1 : 0
@@ -179,7 +225,7 @@ function createFiltersMethods (effects) {
   }
 
   return {
-    allEffects: () => createResult(Array.from(effects.keys())),
+    allEffects: () => createResult(Array.from(getEffects().keys())),
     generatedEffect: (effect) => createResult(findEffect(effect)),
     puttedAction: (action) => createResult(findPuttedAction(action)),
     takenAction: (pattern) => createResult(findTakenAction(pattern)),
