@@ -1,5 +1,13 @@
 import _ from 'lodash'
 
+
+export function mockSaga (saga) {
+  if (Array.isArray(saga)) return mockArray(saga)
+  if (saga instanceof GeneratorFunction) return mockGenerator(saga)
+  if (saga.next) return mockIterator(saga)
+  throw new Error('saga must be a generator function, an array or an iterator')
+}
+
 const isPUT = (effect) => _.isObject(effect) && effect['@@redux-saga/IO'] && effect.PUT
 const isTAKE = (effect) => _.isObject(effect) && effect['@@redux-saga/IO'] && effect.TAKE
 const isCALL = (effect) => _.isObject(effect) && effect['@@redux-saga/IO'] && effect.CALL
@@ -56,7 +64,7 @@ function findAllIndexes (array, matcher, fromPos=0, last=(array.length-1)) {
 
 const GeneratorFunction = (function*(){}).constructor;
 
-export function mockSaga (saga) {
+function mockGenerator (saga) {
   if (!saga instanceof GeneratorFunction) throw new Error('saga must be a generator function')
   const g = saga()
   return mockIterator(g).generator
