@@ -54,14 +54,22 @@ function findAllIndexes (array, matcher, fromPos=0, last=(array.length-1)) {
   return indexes
 }
 
+const GeneratorFunction = (function*(){}).constructor;
+
 export function mockSaga (saga) {
-  const GeneratorFunction = (function*(){}).constructor;
   if (!saga instanceof GeneratorFunction) throw new Error('saga must be a generator function')
+  const g = saga()
+  return mockIterator(g).generator
+}
+
+function mockIterator (g) {
+  if (!g.next) throw new Error('invalid iterator')
+
   const effects = []
   const listeners = []
   const stubs = []
-  const g = saga()
-  const mock = function * () {
+
+  const mockedGenerator = function * () {
     let current = g.next()
     while (!current.done) {
       const effect = current.value
@@ -78,6 +86,8 @@ export function mockSaga (saga) {
     }
     return current.value
   }
+
+  const mockedIterator = mockedGenerator()
 
   const findEffect = (effect, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.effect(effect)), fromPos, last)
   const findPuttedAction = (action, fromPos = 0, last) => findAllIndexes(effects, recursive(matchers.putAction(action)), fromPos, last)
@@ -122,7 +132,7 @@ export function mockSaga (saga) {
 
   function createListener (callback, matcher, ...args) {
     listeners.push({ match: matcher(...args), callback })
-    return mock
+    return mockedIterator
   }
 
   function createStub (matcher, stubCreator) {
@@ -134,7 +144,7 @@ export function mockSaga (saga) {
     } else {
       stubs.push(s)
     }
-    return mock
+    return mockedIterator
   }
   function stubCallCreator(newTargetFn) {
     return effect => {
@@ -143,7 +153,7 @@ export function mockSaga (saga) {
       return newEff }
   }
 
-  return Object.assign(mock, {
+  const filtersMethods = {
     allEffects: () => createResult(Array.from(effects.keys())),
     generatedEffect: (effect) => createResult(findEffect(effect)),
     puttedAction: (action) => createResult(findPuttedAction(action)),
@@ -151,7 +161,8 @@ export function mockSaga (saga) {
     called: (fn) => createResult(findCall(fn)),
     calledWithArgs: (fn, ...args) => createResult(findCallWithArgs(fn, args)),
     calledWithExactArgs: (fn, ...args) => createResult(findCallWithExactArgs(fn, args)),
-
+  }
+  const chainableMethods = {
     onEffect: (effect, callback) => createListener(callback, matchers.effect, effect),
     onTakeAction: (pattern, callback)  => createListener(callback, matchers.takeAction, pattern),
     onPuttedAction: (action, callback)  => createListener(callback, matchers.putAction, action),
@@ -164,5 +175,11 @@ export function mockSaga (saga) {
     stubCallWithExactArgs: (fn, args, stub) => createStub(matchers.callWithExactArgs(fn, args), stubCallCreator(stub)),
     resetStubs: () => stubs.length = 0,
     clearStoredEffects: () => effects.length = 0
-  })
+  }
+  // assign methods to mockGenerator but changes returned value for chainable methods
+  Object.assign(mockedGenerator,
+    filtersMethods,
+    _.mapValues(chainableMethods, fn => (...args) => { fn(...args); return mockedGenerator }))
+
+  return Object.assign(mockedIterator, filtersMethods, chainableMethods, { generator: mockedGenerator })
 }
