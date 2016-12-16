@@ -198,20 +198,21 @@ function createQueryMethods (getEffects) {
   const findCallWithArgs = (fn, args, fromPos = 0, last) => findAllIndexes(getEffects(), recursive(matchers.callWithArgs(fn, args)), fromPos, last)
   const findCallWithExactArgs = (fn, args, fromPos = 0, last) => findAllIndexes(getEffects(), recursive(matchers.callWithExactArgs(fn, args)), fromPos, last)
 
+  const creteOrderedQueries = (from, last) => ({
+    effect: effect => createResult(findEffect(effect, from, last)),
+    puttedAction: action => createResult(findPuttedAction(action, from, last)),
+    takenAction: pattern => createResult(findTakenAction(pattern, from, last)),
+    call: fn => createResult(findCall(fn, from, last)),
+    callWithArgs: (fn, ...args) => createResult(findCallWithArgs(fn, args, from, last)),
+    callWithExactArgs: (fn, ...args) => createResult(findCallWithExactArgs(fn, args, from, last))
+  })
+
   function createResult (indexes) {
     const isPresent = indexes.length > 0
     const filteredEffects = indexes.map(i => getEffects()[i])
     const count = indexes.length
     const next = isPresent ? indexes[0] + 1 : 0
     const prev = isPresent ? indexes[count - 1] - 1 : 0
-    const creteOrderedQueries = (from, last) => ({
-      effect: effect => createResult(findEffect(effect, from, last)),
-      puttedAction: action => createResult(findPuttedAction(action, from, last)),
-      takenAction: pattern => createResult(findTakenAction(pattern, from, last)),
-      call: fn => createResult(findCall(fn, from, last)),
-      callWithArgs: (fn, ...args) => createResult(findCallWithArgs(fn, args, from, last)),
-      callWithExactArgs: (fn, ...args) => createResult(findCallWithExactArgs(fn, args, from, last))
-    })
     return {
       indexes,
       effects: filteredEffects,
