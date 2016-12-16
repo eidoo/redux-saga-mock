@@ -205,12 +205,12 @@ function createQueryMethods (getEffects) {
     const next = isPresent ? indexes[0] + 1 : 0
     const prev = isPresent ? indexes[count - 1] - 1 : 0
     const creteOrderedQueries = (from, last) => ({
-      effect: effect => createResult(isPresent ? findEffect(effect, from, last) : []),
-      puttedAction: action => createResult(isPresent ? findPuttedAction(action, from, last) : []),
-      takenAction: pattern => createResult(isPresent ? findTakenAction(pattern, from, last) : []),
-      call: fn => createResult(isPresent ? findCall(fn, from, last) : []),
-      callWithArgs: (fn, ...args) => createResult(isPresent ? findCallWithArgs(fn, args, from, last) : []),
-      callWithExactArgs: (fn, ...args) => createResult(isPresent ? findCallWithExactArgs(fn, args, from, last) : [])
+      effect: effect => createResult(findEffect(effect, from, last)),
+      puttedAction: action => createResult(findPuttedAction(action, from, last)),
+      takenAction: pattern => createResult(findTakenAction(pattern, from, last)),
+      call: fn => createResult(findCall(fn, from, last)),
+      callWithArgs: (fn, ...args) => createResult(findCallWithArgs(fn, args, from, last)),
+      callWithExactArgs: (fn, ...args) => createResult(findCallWithExactArgs(fn, args, from, last))
     })
     return {
       indexes,
