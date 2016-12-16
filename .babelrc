@@ -1,4 +1,9 @@
 {
     "presets": ["stage-2", "es2015"],
-    "plugins": ["transform-runtime"]
+    "plugins": ["transform-runtime"],
+    "env": {
+        "test": {
+            "plugins": ["transform-runtime", "rewire"]
+        }
+    }
 }
