@@ -100,7 +100,7 @@ function mockArray (sagas) {
       }
     })
   })
-  const filtersMethods = createFiltersMethods(() => mockedArray.map(m => m.allEffects().effects))
+  const filtersMethods = createQueryMethods(() => mockedArray.map(m => m.allEffects().effects))
   _.forEach(filtersMethods, (fn, name) => {
     Object.defineProperty(mockedArray, name, {
       configurable: false,
@@ -162,7 +162,7 @@ function mockIterator (g) {
       return newEff }
   }
 
-  const filtersMethods = createFiltersMethods(effects)
+  const filtersMethods = createQueryMethods(effects)
 
   const chainableMethods = {
     onEffect: (effect, callback) => createListener(callback, matchers.effect, effect),
@@ -186,7 +186,7 @@ function mockIterator (g) {
   return Object.assign(mockedIterator, filtersMethods, chainableMethods, { generator: mockedGenerator })
 }
 
-function createFiltersMethods (getEffects) {
+function createQueryMethods (getEffects) {
   if (Array.isArray(getEffects)) {
     const effects = getEffects
     getEffects = () => effects
@@ -204,6 +204,14 @@ function createFiltersMethods (getEffects) {
     const count = indexes.length
     const next = isPresent ? indexes[0] + 1 : 0
     const prev = isPresent ? indexes[count - 1] - 1 : 0
+    const creteOrderedQueries = (from, last) => ({
+      effect: effect => createResult(isPresent ? findEffect(effect, from, last) : []),
+      puttedAction: action => createResult(isPresent ? findPuttedAction(action, from, last) : []),
+      takenAction: pattern => createResult(isPresent ? findTakenAction(pattern, from, last) : []),
+      call: fn => createResult(isPresent ? findCall(fn, from, last) : []),
+      callWithArgs: (fn, ...args) => createResult(isPresent ? findCallWithArgs(fn, args, from, last) : []),
+      callWithExactArgs: (fn, ...args) => createResult(isPresent ? findCallWithExactArgs(fn, args, from, last) : [])
+    })
     return {
       indexes,
       effects: filteredEffects,
@@ -213,22 +221,8 @@ function createFiltersMethods (getEffects) {
       instance: number => createResult(number <= count ? [indexes[number]] : []),
       first: () => createResult(isPresent ? [indexes[0]] : []),
       last: () => createResult(isPresent ? [indexes[count - 1]] : []),
-      followedBy: {
-        effect: effect => createResult(isPresent ? findEffect(effect, next) : []),
-        puttedAction: action => createResult(isPresent ? findPuttedAction(action, next) : []),
-        takenAction: pattern => createResult(isPresent ? findTakenAction(pattern, next) : []),
-        call: fn => createResult(isPresent ? findCall(fn, next) : []),
-        callWithArgs: (fn, ...args) => createResult(isPresent ? findCallWithArgs(fn, args, next) : []),
-        callWithExactArgs: (fn, ...args) => createResult(isPresent ? findCallWithExactArgs(fn, args, next) : [])
-      },
-      precededBy: {
-        effect: effect => createResult(isPresent ? findEffect(effect, 0, prev) : []),
-        puttedAction: action => createResult(isPresent ? findPuttedAction(action, 0, prev) : []),
-        takenAction: pattern => createResult(isPresent ? findTakenAction(pattern, 0, prev) : []),
-        call: fn => createResult(isPresent ? findCall(fn, 0, prev) : []),
-        callWithArgs: (fn, ...args) => createResult(isPresent ? findCallWithArgs(fn, args, 0, prev) : []),
-        callWithExactArgs: (fn, ...args) => createResult(isPresent ? findCallWithExactArgs(fn, args, 0, prev) : [])
-      }
+      followedBy: creteOrderedQueries(next),
+      precededBy: creteOrderedQueries(0, prev)
     }
   }
 
