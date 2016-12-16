@@ -46,47 +46,48 @@ describe('mock saga', () => {
       'resetStubs',
       'clearStoredEffects',
     ]
-    const filtersMethods = [
-      'allEffects',
-      'generatedEffect',
-      'puttedAction',
-      'takenAction',
-      'called',
-      'calledWithArgs',
-      'calledWithExactArgs'
+    const quertMethods = [
+      'effect',
+      'putAction',
+      'takeAction',
+      'call',
+      'callWithArgs',
+      'callWithExactArgs',
     ]
-    const methods = chainableMethods.concat(filtersMethods)
+    const methods = chainableMethods.concat('query')
 
     methods.forEach(methodName => {
-      it(`Array should have method ${methodName}`, () => {
-        const mock = mockSaga([
-          takeEvery('*', function * () {
-            yield 1
-          }),
-          takeEvery('*', function * () {
-            yield 2
+      describe(`should have method ${methodName}`, () => {
+        const saga = function * () {
+          yield 'test'
+        }
+        _.forEach(buildTests(saga), (toTest, name) => {
+          it(`when is ${name}`, () => {
+            const mock = mockSaga(toTest)
+            assert.property(mock, methodName)
+            assert.isFunction(mock[methodName])
           })
-        ])
-        assert.property(mock, methodName)
-        assert.isFunction(mock[methodName])
-      })
-    })
-    methods.forEach(methodName => {
-      it(`Generator function should have method ${methodName}`, () => {
-        const mock = mockSaga(function * () {
-          yield 1
         })
-        assert.property(mock, methodName)
-        assert.isFunction(mock[methodName])
       })
     })
-    methods.forEach(methodName => {
-      it(`Iterator should have method ${methodName}`, () => {
-        const mock = mockSaga(function * () {
-          yield 1
-        }())
-        assert.property(mock, methodName)
-        assert.isFunction(mock[methodName])
+
+    const qm = quertMethods.concat(
+      'first',
+      'last',
+      'number'
+    )
+    qm.forEach(methodName => {
+      describe(`should have query method ${methodName}`, () => {
+        const saga = function * () {
+          yield 'test'
+        }
+        _.forEach(buildTests(saga), (toTest, name) => {
+          it(`when is ${name}`, () => {
+            const query = mockSaga(toTest).query()
+            assert.property(query, methodName)
+            assert.isFunction(query[methodName])
+          })
+        })
       })
     })
 
@@ -121,8 +122,8 @@ describe('mock saga', () => {
       it(`on ${name}`, () => {
         const mock = mockSaga(toTest)
         return runTest(mock).done.then(() => {
-          assert.isTrue(mock.generatedEffect(effect).isPresent)
-          assert.isFalse(mock.generatedEffect('not generated effect').isPresent)
+          assert.isTrue(mock.query().effect(effect).isPresent)
+          assert.isFalse(mock.query().effect('not generated effect').isPresent)
         })
       })
     })
@@ -137,8 +138,8 @@ describe('mock saga', () => {
       it(`on ${name}`, () => {
         const mock = mockSaga(toTest)
         return runTest(mock).done.then(() => {
-          assert.isTrue(mock.puttedAction(someAction).isPresent)
-          assert.isFalse(mock.puttedAction(otherAction).isPresent)
+          assert.isTrue(mock.query().putAction(someAction).isPresent)
+          assert.isFalse(mock.query().putAction(otherAction).isPresent)
         })
       })
     })
@@ -153,8 +154,8 @@ describe('mock saga', () => {
       it(`on ${name}`, () => {
         const mock = mockSaga(toTest)
         return runTest(mock).done.then(() => {
-          assert.isTrue(mock.puttedAction(someActionType).isPresent)
-          assert.isFalse(mock.puttedAction(otherActionType).isPresent)
+          assert.isTrue(mock.query().putAction(someActionType).isPresent)
+          assert.isFalse(mock.query().putAction(otherActionType).isPresent)
         })
       })
     })
@@ -171,8 +172,8 @@ describe('mock saga', () => {
         const task = runTest(mock)
         store.dispatch(someAction)
         return task.done.then(() => {
-          assert.isTrue(mock.takenAction(someActionType).isPresent)
-          assert.isFalse(mock.takenAction(otherActionType).isPresent)
+          assert.isTrue(mock.query().takeAction(someActionType).isPresent)
+          assert.isFalse(mock.query().takeAction(otherActionType).isPresent)
         })
       })
     })
@@ -191,24 +192,24 @@ describe('mock saga', () => {
         const isArray = name === 'array'
         const mock = mockSaga(toTest)
         return runTest(mock).done.then(() => {
-          assert.isTrue(mock.called(someObj.method).isPresent)
-          assert.isTrue(mock.calledWithArgs(someObj.method, 'a').isPresent)
-          assert.isFalse(mock.calledWithArgs(someObj.method, 'c').isPresent)
-          assert.isTrue(mock.calledWithExactArgs(someObj.method).isPresent)
-          assert.isFalse(mock.calledWithExactArgs(someObj.method, 'a').isPresent)
-          assert.isTrue(mock.calledWithExactArgs(someObj.method, 'a', 'b').isPresent)
+          assert.isTrue(mock.query().call(someObj.method).isPresent)
+          assert.isTrue(mock.query().callWithArgs(someObj.method, 'a').isPresent)
+          assert.isFalse(mock.query().callWithArgs(someObj.method, 'c').isPresent)
+          assert.isTrue(mock.query().callWithExactArgs(someObj.method).isPresent)
+          assert.isFalse(mock.query().callWithExactArgs(someObj.method, 'a').isPresent)
+          assert.isTrue(mock.query().callWithExactArgs(someObj.method, 'a', 'b').isPresent)
           // let target
           if (name === 'array') {
-            assert.equal(mock.called(someObj.method).count, 1)
-            assert.equal(mock.calledWithArgs(someObj.method, 'a').count, 1)
-            assert.equal(mock.calledWithArgs(someObj.method, 'a', 'b').count, 1)
+            assert.equal(mock.query().call(someObj.method).count, 1)
+            assert.equal(mock.query().callWithArgs(someObj.method, 'a').count, 1)
+            assert.equal(mock.query().callWithArgs(someObj.method, 'a', 'b').count, 1)
             // target = mock.allEffects().effects[1]
             // TODO check count in sub elements of array
           } else {
             // target = mock
-            assert.equal(mock.called(someObj.method).count, 4)
-            assert.equal(mock.calledWithArgs(someObj.method, 'a').count, 2)
-            assert.equal(mock.calledWithArgs(someObj.method, 'a', 'b').count, 1)
+            assert.equal(mock.query().call(someObj.method).count, 4)
+            assert.equal(mock.query().callWithArgs(someObj.method, 'a').count, 2)
+            assert.equal(mock.query().callWithArgs(someObj.method, 'a', 'b').count, 1)
           }
         })
       })
@@ -227,9 +228,9 @@ describe('mock saga', () => {
       it(`on ${name}`, () => {
         const mock = mockSaga(toTest)
         return runTest(mock).done.then(() => {
-          assert.isTrue(mock.puttedAction(someAction).isPresent)
-          assert.isTrue(mock.puttedAction(otherAction).isPresent)
-          assert.isFalse(mock.called(someObj.method).isPresent)
+          assert.isTrue(mock.query().putAction(someAction).isPresent)
+          assert.isTrue(mock.query().putAction(otherAction).isPresent)
+          assert.isFalse(mock.query().call(someObj.method).isPresent)
         })
       })
     })
@@ -247,9 +248,9 @@ describe('mock saga', () => {
       it(`on ${name}`, () => {
         const mock = mockSaga(toTest)
         return runTest(mock).done.then(() => {
-          assert.isTrue(mock.puttedAction(someAction).isPresent)
-          assert.isTrue(mock.puttedAction(otherAction).isPresent)
-          assert.isFalse(mock.called(someObj.method).isPresent)
+          assert.isTrue(mock.query().putAction(someAction).isPresent)
+          assert.isTrue(mock.query().putAction(otherAction).isPresent)
+          assert.isFalse(mock.query().call(someObj.method).isPresent)
         })
       })
     })
@@ -268,9 +269,9 @@ describe('mock saga', () => {
       it(`on ${name}`, () => {
         const mock = mockSaga(toTest)
         return runTest(mock).done.then(() => {
-          assert.isTrue(mock.puttedAction(someAction).isPresent)
-          assert.isTrue(mock.puttedAction(otherAction).isPresent)
-          assert.isFalse(mock.called(someObj.method).isPresent)
+          assert.isTrue(mock.query().putAction(someAction).isPresent)
+          assert.isTrue(mock.query().putAction(otherAction).isPresent)
+          assert.isFalse(mock.query().call(someObj.method).isPresent)
         })
       })
     })
@@ -598,10 +599,10 @@ describe('mock saga', () => {
       .stubCall(toStub, () => 'stubbed')
     return sagaMiddleware.run(mock).done.then(() => {
       expect(flag).to.equal(true)
-      expect(mock.puttedAction(otherAction).isPresent).to.be.ok
-      expect(mock.puttedAction(someAction).isPresent).to.not.be.ok
-      expect(mock.generatedEffect('stringa').isPresent).to.be.true
-      expect(mock.generatedEffect('stringa').followedBy.takenAction(someActionType).isPresent).to.be.true
+      expect(mock.query().putAction(otherAction).isPresent).to.be.ok
+      expect(mock.query().putAction(someAction).isPresent).to.not.be.ok
+      expect(mock.query().effect('stringa').isPresent).to.be.true
+      expect(mock.query().effect('stringa').followedBy.takeAction(someActionType).isPresent).to.be.true
     })
   })
 

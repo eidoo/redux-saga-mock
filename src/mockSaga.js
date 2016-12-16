@@ -1,6 +1,5 @@
 import _ from 'lodash'
 
-
 export function mockSaga (saga) {
   if (Array.isArray(saga)) return mockArray(saga)
   if (saga instanceof GeneratorFunction) return mockGenerator(saga)
@@ -100,8 +99,8 @@ function mockArray (sagas) {
       }
     })
   })
-  const filtersMethods = createQueryMethods(() => mockedArray.map(m => m.allEffects().effects))
-  _.forEach(filtersMethods, (fn, name) => {
+  const queryMethods = createQueryMethods(() => mockedArray.map(m => m.query().effects))
+  _.forEach(queryMethods, (fn, name) => {
     Object.defineProperty(mockedArray, name, {
       configurable: false,
       enumerable: false,
@@ -159,10 +158,11 @@ function mockIterator (g) {
     return effect => {
       let cloned = _.cloneDeep(effect)
       let newEff = _.set(cloned, 'CALL.fn', newTargetFn)
-      return newEff }
+      return newEff
+    }
   }
 
-  const filtersMethods = createQueryMethods(effects)
+  const chainable = (retval, fn) => (...args) => { fn(...args); return retval }
 
   const chainableMethods = {
     onEffect: (effect, callback) => createListener(callback, matchers.effect, effect),
@@ -175,15 +175,18 @@ function mockIterator (g) {
     stubCall: (fn, stub) => createStub(matchers.call(fn), stubCallCreator(stub)),
     stubCallWithArgs: (fn, args, stub) => createStub(matchers.callWithArgs(fn, args), stubCallCreator(stub)),
     stubCallWithExactArgs: (fn, args, stub) => createStub(matchers.callWithExactArgs(fn, args), stubCallCreator(stub)),
-    resetStubs: () => stubs.length = 0,
-    clearStoredEffects: () => effects.length = 0
+    resetStubs: chainable(mockIterator, () => stubs.length = 0),
+    clearStoredEffects: chainable(mockIterator, () => effects.length = 0)
   }
+
+  const queryMethods = createQueryMethods(effects)
   // assign methods to mockGenerator but changes returned value for chainable methods
   Object.assign(mockedGenerator,
-    filtersMethods,
-    _.mapValues(chainableMethods, fn => (...args) => { fn(...args); return mockedGenerator }))
+    queryMethods,
+    _.mapValues(chainableMethods, fn => chainable(mockedGenerator, fn))
+  )
 
-  return Object.assign(mockedIterator, filtersMethods, chainableMethods, { generator: mockedGenerator })
+  return Object.assign(mockedIterator, queryMethods, chainableMethods, { generator: mockedGenerator })
 }
 
 function createQueryMethods (getEffects) {
@@ -198,10 +201,10 @@ function createQueryMethods (getEffects) {
   const findCallWithArgs = (fn, args, fromPos = 0, last) => findAllIndexes(getEffects(), recursive(matchers.callWithArgs(fn, args)), fromPos, last)
   const findCallWithExactArgs = (fn, args, fromPos = 0, last) => findAllIndexes(getEffects(), recursive(matchers.callWithExactArgs(fn, args)), fromPos, last)
 
-  const creteOrderedQueries = (from, last) => ({
+  const createOrderedQueries = (from, last) => ({
     effect: effect => createResult(findEffect(effect, from, last)),
-    puttedAction: action => createResult(findPuttedAction(action, from, last)),
-    takenAction: pattern => createResult(findTakenAction(pattern, from, last)),
+    putAction: action => createResult(findPuttedAction(action, from, last)),
+    takeAction: pattern => createResult(findTakenAction(pattern, from, last)),
     call: fn => createResult(findCall(fn, from, last)),
     callWithArgs: (fn, ...args) => createResult(findCallWithArgs(fn, args, from, last)),
     callWithExactArgs: (fn, ...args) => createResult(findCallWithExactArgs(fn, args, from, last))
@@ -213,27 +216,24 @@ function createQueryMethods (getEffects) {
     const count = indexes.length
     const next = isPresent ? indexes[0] + 1 : 0
     const prev = isPresent ? indexes[count - 1] - 1 : 0
-    return {
-      indexes,
-      effects: filteredEffects,
-      isPresent,
-      notPresent: !isPresent,
-      count,
-      instance: number => createResult(number <= count ? [indexes[number]] : []),
-      first: () => createResult(isPresent ? [indexes[0]] : []),
-      last: () => createResult(isPresent ? [indexes[count - 1]] : []),
-      followedBy: creteOrderedQueries(next),
-      precededBy: creteOrderedQueries(0, prev)
-    }
+    return Object.assign(
+      {
+        indexes,
+        effects: filteredEffects,
+        isPresent,
+        notPresent: !isPresent,
+        count,
+        number: num => createResult(num >= 0 && num <= count ? [indexes[num]] : []),
+        first: () => createResult(isPresent ? [indexes[0]] : []),
+        last: () => createResult(isPresent ? [indexes[count - 1]] : []),
+        followedBy: createOrderedQueries(next),
+        precededBy: createOrderedQueries(0, prev)
+      },
+      createOrderedQueries()
+    )
   }
 
   return {
-    allEffects: () => createResult(Array.from(getEffects().keys())),
-    generatedEffect: (effect) => createResult(findEffect(effect)),
-    puttedAction: (action) => createResult(findPuttedAction(action)),
-    takenAction: (pattern) => createResult(findTakenAction(pattern)),
-    called: (fn) => createResult(findCall(fn)),
-    calledWithArgs: (fn, ...args) => createResult(findCallWithArgs(fn, args)),
-    calledWithExactArgs: (fn, ...args) => createResult(findCallWithExactArgs(fn, args)),
+    query: () => createResult(Array.from(getEffects().keys()))
   }
 }
