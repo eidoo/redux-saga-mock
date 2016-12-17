@@ -101,7 +101,9 @@ describe('mock saga', () => {
         (function * () { yield 'dummy' })(),
         gfn(),
         (function * () { yield 'dummy' })()
-      ]
+      ],
+      'fork': function * () { yield effects.fork(gfn) },
+      'spawn': function * () { yield effects.spawn(gfn) }
     }
   }
   const GeneratorFunction = (function*(){}).constructor;
@@ -277,14 +279,14 @@ describe('mock saga', () => {
     })
   })
 
-  describe('should listen effect', (done) => {
+  describe('should listen effect', () => {
     const effect = effects.select(s => s.a)
     const saga = function * () {
       yield 'test'
       yield effect
     }
     _.forEach(buildTests(saga), (toTest, name) => {
-      it(`on ${name}`, () => {
+      it(`on ${name}`, (done) => {
         const mock = mockSaga(toTest)
         mock.onEffect(effect, done)
         runTest(mock)
