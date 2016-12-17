@@ -114,23 +114,23 @@ function mockArray (sagas) {
   return mockedArray
 }
 
-function createGenerator (sagaIterator, effects, listeners, stubs) {
-  return function * mockedGenerator () {
-    let current = sagaIterator.next()
+function createGenerator (saga, effects, listeners, stubs) {
+  return function * mockedGenerator (...args) {
+    if (saga instanceof GeneratorFunction) {
+      saga = saga(...args)
+    }
+    let current = saga.next()
     while (!current.done) {
       const effect = current.value
-      console.log('>> effect:', effect)
-      if (isFORK(effect) && effect.FORK.fn instanceof GeneratorFunction) {
-
-      }
+      // console.log('>> effect:', effect)
       effects.push(effect)
-      listeners.forEach((l) => recursive(l.match)(effect) && setTimeout(l.callback))
+      listeners.forEach((l) => recursive(l.match)(effect) && setTimeout(() => l.callback(effect)))
       const stubbedEffect = stubs.reduce((seffect, stub) => rreplace(stub.match, seffect, stub.stubCreator), effect)
       try {
         const data = yield stubbedEffect
-        current = sagaIterator.next(data)
+        current = saga.next(data)
       } catch (error) {
-        current = sagaIterator.throw(error)
+        current = saga.throw(error)
       }
     }
     return current.value
@@ -153,7 +153,7 @@ function mockIterator (saga) {
 
   const stubFork = (effect) => {
     const cloned = _.cloneDeep(effect)
-    const mockedSubGenFn = createGenerator(effect.FORK.fn(), effects, listeners, stubs)
+    const mockedSubGenFn = createGenerator(effect.FORK.fn, effects, listeners, stubs)
     return _.set(cloned, 'FORK.fn', mockedSubGenFn)
   }
 
