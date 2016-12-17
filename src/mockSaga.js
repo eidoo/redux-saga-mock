@@ -1,5 +1,7 @@
 import _ from 'lodash'
 
+const GeneratorFunction = (function*(){}).constructor;
+
 export function mockSaga (saga) {
   if (Array.isArray(saga)) return mockArray(saga)
   if (saga instanceof GeneratorFunction) return mockGenerator(saga)
@@ -11,6 +13,7 @@ const isPUT = (effect) => _.isObject(effect) && effect['@@redux-saga/IO'] && eff
 const isTAKE = (effect) => _.isObject(effect) && effect['@@redux-saga/IO'] && effect.TAKE
 const isCALL = (effect) => _.isObject(effect) && effect['@@redux-saga/IO'] && effect.CALL
 const isRACE = (effect) => _.isObject(effect) && effect['@@redux-saga/IO'] && effect.RACE
+const isFORK = (effect) => _.isObject(effect) && effect['@@redux-saga/IO'] && effect.FORK
 
 export const matchers = {
   putAction: (action) => _.isString(action)
@@ -25,7 +28,9 @@ export const matchers = {
   callWithArgs: (fn, args) =>
     effect => isCALL(effect) && effect.CALL.fn === fn && _.isMatch(effect.CALL.args, args),
   callWithExactArgs: (fn, args) =>
-    effect => isCALL(effect) && effect.CALL.fn === fn && _.isEqual(effect.CALL.args, args)
+    effect => isCALL(effect) && effect.CALL.fn === fn && _.isEqual(effect.CALL.args, args),
+  forkGeneratorFn: () =>
+    effect => isFORK(effect) && effect.FORK.fn instanceof GeneratorFunction
 }
 
 function recursive(matcher) {
@@ -60,8 +65,6 @@ function findAllIndexes (array, matcher, fromPos=0, last=(array.length-1)) {
   }
   return indexes
 }
-
-const GeneratorFunction = (function*(){}).constructor;
 
 function mockGenerator (saga) {
   if (!saga instanceof GeneratorFunction) throw new Error('saga must be a generator function')
@@ -111,30 +114,52 @@ function mockArray (sagas) {
   return mockedArray
 }
 
-function mockIterator (g) {
-  if (!g.next) throw new Error('invalid iterator')
-
-  const effects = []
-  const listeners = []
-  const stubs = []
-
-  const mockedGenerator = function * () {
-    let current = g.next()
+function createGenerator (sagaIterator, effects, listeners, stubs) {
+  return function * mockedGenerator () {
+    let current = sagaIterator.next()
     while (!current.done) {
       const effect = current.value
       console.log('>> effect:', effect)
+      if (isFORK(effect) && effect.FORK.fn instanceof GeneratorFunction) {
+
+      }
       effects.push(effect)
       listeners.forEach((l) => recursive(l.match)(effect) && setTimeout(l.callback))
       const stubbedEffect = stubs.reduce((seffect, stub) => rreplace(stub.match, seffect, stub.stubCreator), effect)
       try {
         const data = yield stubbedEffect
-        current = g.next(data)
+        current = sagaIterator.next(data)
       } catch (error) {
-        current = g.throw(error)
+        current = sagaIterator.throw(error)
       }
     }
     return current.value
   }
+}
+
+function stubCallCreator(newTargetFn) {
+  return effect => {
+    let cloned = _.cloneDeep(effect)
+    return _.set(cloned, 'CALL.fn', newTargetFn)
+  }
+}
+
+function mockIterator (saga) {
+  if (!saga.next) throw new Error('invalid iterator')
+
+  const effects = []
+  const listeners = []
+  const stubs = []
+
+  const stubFork = (effect) => {
+    const cloned = _.cloneDeep(effect)
+    const mockedSubGenFn = createGenerator(effect.FORK.fn(), effects, listeners, stubs)
+    return _.set(cloned, 'FORK.fn', mockedSubGenFn)
+  }
+
+  createStub(matchers.forkGeneratorFn(), stubFork)
+
+  const mockedGenerator = createGenerator(saga, effects, listeners, stubs)
 
   const mockedIterator = mockedGenerator()
 
@@ -154,13 +179,6 @@ function mockIterator (g) {
     }
     return mockedIterator
   }
-  function stubCallCreator(newTargetFn) {
-    return effect => {
-      let cloned = _.cloneDeep(effect)
-      let newEff = _.set(cloned, 'CALL.fn', newTargetFn)
-      return newEff
-    }
-  }
 
   const chainable = (retval, fn) => (...args) => { fn(...args); return retval }
 
@@ -175,7 +193,7 @@ function mockIterator (g) {
     stubCall: (fn, stub) => createStub(matchers.call(fn), stubCallCreator(stub)),
     stubCallWithArgs: (fn, args, stub) => createStub(matchers.callWithArgs(fn, args), stubCallCreator(stub)),
     stubCallWithExactArgs: (fn, args, stub) => createStub(matchers.callWithExactArgs(fn, args), stubCallCreator(stub)),
-    resetStubs: chainable(mockIterator, () => stubs.length = 0),
+    resetStubs: chainable(mockIterator, () => stubs.length = 1),  // first stub is for forks
     clearStoredEffects: chainable(mockIterator, () => effects.length = 0)
   }
 
