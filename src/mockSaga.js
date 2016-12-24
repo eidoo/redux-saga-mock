@@ -151,24 +151,16 @@ function mockIterator (saga) {
   const listeners = []
   const stubs = []
 
-  const stubFork = (effect) => {
-    const cloned = _.cloneDeep(effect)
-    const mockedSubGenFn = createGenerator(effect.FORK.fn, effects, listeners, stubs)
-    return _.set(cloned, 'FORK.fn', mockedSubGenFn)
-  }
-
-  createStub(matchers.forkGeneratorFn(), stubFork)
-
   const mockedGenerator = createGenerator(saga, effects, listeners, stubs)
 
   const mockedIterator = mockedGenerator()
 
-  function createListener (callback, matcher, ...args) {
+  const createListener = (callback, matcher, ...args) => {
     listeners.push({ match: matcher(...args), callback })
     return mockedIterator
   }
 
-  function createStub (matcher, stubCreator) {
+  const createStub = (matcher, stubCreator) => {
     if (!_.isFunction(stubCreator)) throw new Error('stub function required')
     const s = { match: matcher, stubCreator }
     const pos = _.findIndex(stubs, matcher)
@@ -180,12 +172,20 @@ function mockIterator (saga) {
     return mockedIterator
   }
 
+  const stubFork = (effect) => {
+    const cloned = _.cloneDeep(effect)
+    const mockedSubGenFn = createGenerator(effect.FORK.fn, effects, listeners, stubs)
+    return _.set(cloned, 'FORK.fn', mockedSubGenFn)
+  }
+
+  createStub(matchers.forkGeneratorFn(), stubFork)
+
   const chainable = (retval, fn) => (...args) => { fn(...args); return retval }
 
   const chainableMethods = {
     onEffect: (effect, callback) => createListener(callback, matchers.effect, effect),
-    onTakeAction: (pattern, callback)  => createListener(callback, matchers.takeAction, pattern),
-    onPuttedAction: (action, callback)  => createListener(callback, matchers.putAction, action),
+    onTakeAction: (pattern, callback) => createListener(callback, matchers.takeAction, pattern),
+    onPuttedAction: (action, callback) => createListener(callback, matchers.putAction, action),
     onCall: (fn, callback) => createListener(callback, matchers.call, fn),
     onCallWithArgs: (fn, args, callback) => createListener(callback, matchers.callWithArgs, fn, args),
     onCallWithExactArgs: (fn, args, callback) => createListener(callback, matchers.callWithExactArgs, fn, args),
