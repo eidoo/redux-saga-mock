@@ -255,3 +255,36 @@ function createQueryMethods (getEffects) {
     query: () => createResult(Array.from(getEffects().keys()))
   }
 }
+
+export function getStoreSpyMiddleware ({asyncCallbacks=true}={}) {
+  const invoke = asyncCallbacks
+    ? (cb, ...args) => cb && setTimeout(() => cb(...args))
+    : (cb, ...args) => cb && cb(...args)
+
+  // const actions = []
+  const listeners = []
+
+  const middleware = store => next => action => {
+    // actions.push(action)
+    listeners.forEach((l) => l.match(action) && invoke(() => l.preCallback(action)))
+    let result = next(action)
+    listeners.forEach((l) => l.match(action) && invoke(() => l.postCallback(action)))
+    return result
+  }
+  const actionMatcher = (actionFilter) => _.isString(actionFilter)
+    ? action => action.type === actionFilter
+    : action => _.isEqual(action, actionFilter)
+
+  middleware.onAction = (actionFilter, postCallback, preCallback) => {
+    listeners.push({
+      match: actionMatcher(actionFilter),
+      preCallback,
+      postCallback,
+    })
+    return middleware
+  }
+
+  middleware.resetListeners = () => listeners.length = 0
+
+  return middleware
+}
