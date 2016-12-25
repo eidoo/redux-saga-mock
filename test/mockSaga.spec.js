@@ -288,7 +288,7 @@ describe('mock saga', () => {
     _.forEach(buildTests(saga), (toTest, name) => {
       it(`on ${name}`, (done) => {
         const mock = mockSaga(toTest)
-        mock.onEffect(effect, done)
+        mock.onEffect(effect, () => done())
         runTest(mock)
       })
     })
@@ -331,7 +331,7 @@ describe('mock saga', () => {
     _.forEach(buildTests(saga), (toTest, name) => {
       it(`on ${name}`, (done) => {
         const mock = mockSaga(toTest)
-        mock.onTakeAction(someActionType, done)
+        mock.onTakeAction(someActionType, () => done())
         runTest(mock)
       })
     })
@@ -345,7 +345,7 @@ describe('mock saga', () => {
     _.forEach(buildTests(saga), (toTest, name) => {
       it(`on ${name}`, (done) => {
         const mock = mockSaga(toTest)
-        mock.onCall(someObj.method, done)
+        mock.onCall(someObj.method, () => done())
         runTest(mock)
       })
     })
@@ -361,7 +361,7 @@ describe('mock saga', () => {
         const mock = mockSaga(toTest)
           .onCallWithArgs(someObj.method, [ 1 ], () => done('invalid call [1]'))
           .onCallWithArgs(someObj.method, [ 2, 3, 4 ], () => done('invalid call [2,3,4]'))
-          .onCallWithArgs(someObj.method, [ 2, 3 ], done)
+          .onCallWithArgs(someObj.method, [ 2, 3 ], () => done())
         runTest(mock)
       })
     })
@@ -379,7 +379,7 @@ describe('mock saga', () => {
           .onCallWithExactArgs(someObj.method, [ 1 ], () => done('invalid call [1]'))
           .onCallWithExactArgs(someObj.method, [ 2 ], () => done('invalid call [2]'))
           .onCallWithExactArgs(someObj.method, [ 2, 3, 4 ], () => done('invalid call [2,3,4]'))
-          .onCallWithExactArgs(someObj.method, [ 2, 3 ], done)
+          .onCallWithExactArgs(someObj.method, [ 2, 3 ], () => done())
         runTest(mock)
       })
     })
