@@ -4,9 +4,8 @@ const GeneratorFunction = (function*(){}).constructor;
 
 export function mockSaga (saga) {
   if (Array.isArray(saga)) return mockArray(saga)
-  if (saga instanceof GeneratorFunction) return mockGenerator(saga)
-  if (saga.next) return mockIterator(saga)
-  throw new Error('saga must be a generator function, an array or an iterator')
+  if (saga instanceof GeneratorFunction || saga.next) return mockGenerator(saga)
+  throw new Error('saga must be a generator object, a generator function or an array')
 }
 
 const isPUT = (effect) => _.isObject(effect) && effect['@@redux-saga/IO'] && effect.PUT
@@ -64,12 +63,6 @@ function findAllIndexes (array, matcher, fromPos=0, last=(array.length-1)) {
     if (matcher(array[i])) indexes.push(i)
   }
   return indexes
-}
-
-function mockGenerator (saga) {
-  if (!saga instanceof GeneratorFunction) throw new Error('saga must be a generator function')
-  const g = saga()
-  return mockIterator(g).generator
 }
 
 const chainableMethods = [
@@ -144,32 +137,37 @@ function stubCallCreator(newTargetFn) {
   }
 }
 
-function mockIterator (saga) {
-  if (!saga.next) throw new Error('invalid iterator')
+function mockGenerator (saga) {
+  if (!saga.next && !(saga instanceof GeneratorFunction)) throw new Error('invalid generator')
 
   const effects = []
   const listeners = []
   const stubs = []
 
-  const mockedGenerator = createGenerator(saga, effects, listeners, stubs)
+  const mockedGeneratorFn = createGenerator(saga, effects, listeners, stubs)
 
-  const mockedIterator = mockedGenerator()
+  const mockedGeneratorObj = mockedGeneratorFn()
+
+  const retval = saga instanceof GeneratorFunction
+    ? mockedGeneratorFn
+    : mockedGeneratorObj
 
   const createListener = (callback, matcher, ...args) => {
     listeners.push({ match: matcher(...args), callback })
-    return mockedIterator
+    return retval
   }
 
   const createStub = (matcher, stubCreator) => {
     if (!_.isFunction(stubCreator)) throw new Error('stub function required')
     const s = { match: matcher, stubCreator }
+    // FIXME replacement doesn't work because the macher is created on every call
     const pos = _.findIndex(stubs, matcher)
     if (pos !== -1) {
       stubs[pos] = s
     } else {
       stubs.push(s)
     }
-    return mockedIterator
+    return retval
   }
 
   const stubFork = (effect) => {
@@ -179,8 +177,6 @@ function mockIterator (saga) {
   }
 
   createStub(matchers.forkGeneratorFn(), stubFork)
-
-  const chainable = (retval, fn) => (...args) => { fn(...args); return retval }
 
   const chainableMethods = {
     onEffect: (effect, callback) => createListener(callback, matchers.effect, effect),
@@ -193,18 +189,12 @@ function mockIterator (saga) {
     stubCall: (fn, stub) => createStub(matchers.call(fn), stubCallCreator(stub)),
     stubCallWithArgs: (fn, args, stub) => createStub(matchers.callWithArgs(fn, args), stubCallCreator(stub)),
     stubCallWithExactArgs: (fn, args, stub) => createStub(matchers.callWithExactArgs(fn, args), stubCallCreator(stub)),
-    resetStubs: chainable(mockIterator, () => stubs.length = 1),  // first stub is for forks
-    clearStoredEffects: chainable(mockIterator, () => effects.length = 0)
+    resetStubs: () => { stubs.length = 1; return retval },  // first stub is for forks
+    clearStoredEffects: () => { effects.length = 0; return retval }
   }
 
   const queryMethods = createQueryMethods(effects)
-  // assign methods to mockGenerator but changes returned value for chainable methods
-  Object.assign(mockedGenerator,
-    queryMethods,
-    _.mapValues(chainableMethods, fn => chainable(mockedGenerator, fn))
-  )
-
-  return Object.assign(mockedIterator, queryMethods, chainableMethods, { generator: mockedGenerator })
+  return Object.assign(retval, queryMethods, chainableMethods)
 }
 
 function createQueryMethods (getEffects) {
