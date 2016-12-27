@@ -68,10 +68,16 @@ function findAllIndexes (array, matcher, fromPos=0, last=(array.length-1)) {
 const chainableMethods = [
   'onEffect',
   'onTakeAction',
-  'onPuttedAction',
+  'onPutAction',
   'onCall',
   'onCallWithArgs',
   'onCallWithExactArgs',
+  'onYieldEffect',
+  'onYieldTakeAction',
+  'onYieldPutAction',
+  'onYieldCall',
+  'onYieldCallWithArgs',
+  'onYieldCallWithExactArgs',
   'stubCall',
   'stubCallWithArgs',
   'stubCallWithExactArgs',
@@ -90,8 +96,12 @@ function mockArray (sagas) {
       enumerable: false,
       writable: false,
       value: (...args) => {
-        mockedArray.forEach(s => s[name](...args))
-        return mockedArray
+        if (args.length > 1 && _.isFunction(args[args.length - 1])) {
+          mockedArray.forEach(s => s[name](...args))
+          return mockedArray
+        } else {
+          return Promise.race(mockedArray.map(s => s[name](...args)))
+        }
       }
     })
   })
@@ -107,7 +117,7 @@ function mockArray (sagas) {
   return mockedArray
 }
 
-function createGenerator (saga, effects, listeners, stubs) {
+function createGenerator (saga, effects, listenersPre, listenersPost, stubs) {
   return function * mockedGenerator (...args) {
     if (saga instanceof GeneratorFunction) {
       saga = saga(...args)
@@ -117,10 +127,11 @@ function createGenerator (saga, effects, listeners, stubs) {
       const effect = current.value
       // console.log('>> effect:', effect)
       effects.push(effect)
-      listeners.forEach((l) => recursive(l.match)(effect) && setTimeout(() => l.callback(effect)))
+      listenersPre.forEach((l) => recursive(l.match)(effect) && l.callback(effect))
       const stubbedEffect = stubs.reduce((seffect, stub) => rreplace(stub.match, seffect, stub.stubCreator), effect)
       try {
         const data = yield stubbedEffect
+        listenersPost.forEach((l) => recursive(l.match)(effect) && l.callback({effect, data}))
         current = saga.next(data)
       } catch (error) {
         current = saga.throw(error)
@@ -137,25 +148,35 @@ function stubCallCreator(newTargetFn) {
   }
 }
 
+const addListener = (target, listeners, callback, matcher, ...args) => {
+  let retval
+  if (callback) {
+    retval = target
+  } else {
+    retval = new Promise((resolve, reject) => {
+      callback = _.once((effect) => resolve(effect))
+    })
+  }
+  listeners.push({ match: matcher(...args), callback })
+  return retval
+}
+
 function mockGenerator (saga) {
   if (!saga.next && !(saga instanceof GeneratorFunction)) throw new Error('invalid generator')
 
   const effects = []
-  const listeners = []
   const stubs = []
+  // listeners
+  const lstPre = []
+  const lstPost = []
 
-  const mockedGeneratorFn = createGenerator(saga, effects, listeners, stubs)
+  const mockedGeneratorFn = createGenerator(saga, effects, lstPre, lstPost, stubs)
 
   const mockedGeneratorObj = mockedGeneratorFn()
 
   const retval = saga instanceof GeneratorFunction
     ? mockedGeneratorFn
     : mockedGeneratorObj
-
-  const createListener = (callback, matcher, ...args) => {
-    listeners.push({ match: matcher(...args), callback })
-    return retval
-  }
 
   const createStub = (matcher, stubCreator) => {
     if (!_.isFunction(stubCreator)) throw new Error('stub function required')
@@ -172,19 +193,26 @@ function mockGenerator (saga) {
 
   const stubFork = (effect) => {
     const cloned = _.cloneDeep(effect)
-    const mockedSubGenFn = createGenerator(effect.FORK.fn, effects, listeners, stubs)
+    const mockedSubGenFn = createGenerator(effect.FORK.fn, effects, lstPre, lstPost, stubs)
     return _.set(cloned, 'FORK.fn', mockedSubGenFn)
   }
 
   createStub(matchers.forkGeneratorFn(), stubFork)
 
   const chainableMethods = {
-    onEffect: (effect, callback) => createListener(callback, matchers.effect, effect),
-    onTakeAction: (pattern, callback) => createListener(callback, matchers.takeAction, pattern),
-    onPuttedAction: (action, callback) => createListener(callback, matchers.putAction, action),
-    onCall: (fn, callback) => createListener(callback, matchers.call, fn),
-    onCallWithArgs: (fn, args, callback) => createListener(callback, matchers.callWithArgs, fn, args),
-    onCallWithExactArgs: (fn, args, callback) => createListener(callback, matchers.callWithExactArgs, fn, args),
+    onEffect: (effect, callback) => addListener(retval, lstPre, callback, matchers.effect, effect),
+    onTakeAction: (pattern, callback) => addListener(retval, lstPre, callback, matchers.takeAction, pattern),
+    onPutAction: (action, callback) => addListener(retval, lstPre, callback, matchers.putAction, action),
+    onCall: (fn, callback) => addListener(retval, lstPre, callback, matchers.call, fn),
+    onCallWithArgs: (fn, args, callback) => addListener(retval, lstPre, callback, matchers.callWithArgs, fn, args),
+    onCallWithExactArgs: (fn, args, callback) => addListener(retval, lstPre, callback, matchers.callWithExactArgs, fn, args),
+
+    onYieldEffect: (effect, callback) => addListener(retval, lstPost, callback, matchers.effect, effect),
+    onYieldTakeAction: (pattern, callback) => addListener(retval, lstPost, callback, matchers.takeAction, pattern),
+    onYieldPutAction: (action, callback) => addListener(retval, lstPost, callback, matchers.putAction, action),
+    onYieldCall: (fn, callback) => addListener(retval, lstPost, callback, matchers.call, fn),
+    onYieldCallWithArgs: (fn, args, callback) => addListener(retval, lstPost, callback, matchers.callWithArgs, fn, args),
+    onYieldCallWithExactArgs: (fn, args, callback) => addListener(retval, lstPost, callback, matchers.callWithExactArgs, fn, args),
 
     stubCall: (fn, stub) => createStub(matchers.call(fn), stubCallCreator(stub)),
     stubCallWithArgs: (fn, args, stub) => createStub(matchers.callWithArgs(fn, args), stubCallCreator(stub)),

@@ -36,7 +36,7 @@ describe('mock saga', () => {
     const chainableMethods = [
       'onEffect',
       'onTakeAction',
-      'onPuttedAction',
+      'onPutAction',
       'onCall',
       'onCallWithArgs',
       'onCallWithExactArgs',
@@ -95,8 +95,8 @@ describe('mock saga', () => {
 
   function buildTests (gfn) {
     return {
-      'generator function': gfn,
-      'iterator': gfn(),
+      // 'generator function': gfn,
+      'generator object': gfn(),
       'array': [
         (function * () { yield 'dummy' })(),
         gfn(),
@@ -286,9 +286,22 @@ describe('mock saga', () => {
       yield effect
     }
     _.forEach(buildTests(saga), (toTest, name) => {
-      it(`on ${name}`, (done) => {
+      it(`on ${name} - before evaluating effect`, (done) => {
         const mock = mockSaga(toTest)
-        mock.onEffect(effect, () => done())
+        mock.onEffect(effect, (actual) => {
+          assert.deepEqual(actual, effect)
+          done()
+        })
+        runTest(mock)
+      })
+    })
+    _.forEach(buildTests(saga), (toTest, name) => {
+      it(`on ${name} - before returning the evaluated effect result`, (done) => {
+        const mock = mockSaga(toTest)
+        mock.onYieldEffect(effect, ({effect: actual}) => {
+          assert.deepEqual(actual, effect)
+          done()
+        })
         runTest(mock)
       })
     })
@@ -302,8 +315,8 @@ describe('mock saga', () => {
     _.forEach(buildTests(saga), (toTest, name) => {
       it(`on ${name}`, (done) => {
         const mock = mockSaga(toTest)
-        mock.onPuttedAction(someAction2, () => done('invalid match on someAction2'))
-        mock.onPuttedAction(someAction, () => done())
+        mock.onPutAction(someAction2, () => done('invalid match on someAction2'))
+        mock.onPutAction(someAction, () => done())
         runTest(mock)
       })
     })
@@ -317,7 +330,7 @@ describe('mock saga', () => {
     _.forEach(buildTests(saga), (toTest, name) => {
       it(`on ${name}`, (done) => {
         const mock = mockSaga(toTest)
-        mock.onPuttedAction(someActionType, () => done())
+        mock.onPutAction(someActionType, () => done())
         runTest(mock)
       })
     })
@@ -346,6 +359,21 @@ describe('mock saga', () => {
       it(`on ${name}`, (done) => {
         const mock = mockSaga(toTest)
         mock.onCall(someObj.method, () => done())
+        runTest(mock)
+      })
+    })
+    const saga2 = function * () {
+      yield 'test'
+      yield effects.call(someObj.method, 'a', 'b')
+    }
+    const callResult = 'ab'
+    _.forEach(buildTests(saga2), (toTest, name) => {
+      it(`on ${name} - after evaluate the call`, (done) => {
+        const mock = mockSaga(toTest)
+        mock.onYieldCall(someObj.method, ({effect, data}) => {
+          assert.equal(data, callResult)
+          done()
+        })
         runTest(mock)
       })
     })
@@ -595,7 +623,7 @@ describe('mock saga', () => {
     mock
       .onTakeAction(someActionType, () => {
         console.log('dispacth someAction')
-        store.dispatch(someAction)
+        setTimeout(() => store.dispatch(someAction))
       })
       .stubCallWithArgs(toStub, [ 1, 2 ], () => 'stubbed (1,2)')
       .stubCall(toStub, () => 'stubbed')

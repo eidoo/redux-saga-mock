@@ -200,4 +200,64 @@ describe('unit tests', () => {
       })
     })
   })
+  
+  describe('addListener()', () => {
+    const addListener = mockSaga.__get__('addListener')
+    let target
+    let listeners
+    let callback
+    let matcher
+    let someArg
+    beforeEach(() => {
+      target = {}
+      listeners = []
+      callback = () => {}
+      matcher = (arg) => () => {}
+      someArg = {}
+    })
+    it('should return target', () => {
+      const actual = addListener(target, listeners, callback, matcher, someArg)
+      assert.strictEqual(actual, target)
+    })
+    it('should push the callback in the listeners array', () => {
+      const fn = () => {}
+      matcher = (arg) => fn
+      const expected = [{
+        match: fn,
+        callback
+      }]
+      addListener(target, listeners, callback, matcher, someArg)
+      assert.deepEqual(listeners, expected)
+    })
+    it('should call the matcher with the args', () => {
+      const matcher = (...args) => {
+        assert.deepEqual(args, [someArg])
+      }
+      const actual = addListener(target, listeners, callback, matcher, someArg)
+    })
+    it('should return a promise', () => {
+      const actual = addListener(target, listeners, undefined, matcher, someArg)
+      assert.isFunction(actual.then)
+    })
+    it('should push a new callback', () => {
+      addListener(target, listeners, undefined, matcher, someArg)
+      assert.isFunction(listeners[0].callback)
+    })
+    it('the returned promise should resolve the callback data', () => {
+      const expected = {}
+      addListener(target, listeners, undefined, matcher, someArg)
+        .then((actual) => assert.strictEqual(actual, expected))
+      listeners[0].callback(expected)
+    })
+    it('the returned promise should resolve only once', () => {
+      let resolved = false
+      addListener(target, listeners, undefined, matcher, someArg)
+        .then(() => {
+          assert.isFalse(resolved)
+          resolved = true
+        })
+      listeners[0].callback()
+      listeners[0].callback()
+    })
+  })
 })
