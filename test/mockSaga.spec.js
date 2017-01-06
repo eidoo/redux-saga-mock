@@ -96,7 +96,8 @@ describe('mock saga', () => {
     return {
       'generator function': gfn,
       'generator object': gfn(),
-      'plain array': [...gfn()],
+      // TODO remove support for mocking an array
+      // 'plain array': [...gfn()],
       'array': [
         (function * () { yield 'dummy' })(),
         gfn(),
@@ -138,6 +139,8 @@ describe('mock saga', () => {
         const mock = mockSaga(toTest)
         return runTest(mock).done.then(() => {
           assert.isTrue(mock.query().effect(effect).isPresent)
+          assert.equal(mock.query().effect(effect).count, 1)
+          assert.equal(mock.query().effect(effect).count, 1)
           assert.isFalse(mock.query().effect('not generated effect').isPresent)
         })
       })
@@ -154,6 +157,7 @@ describe('mock saga', () => {
         const mock = mockSaga(toTest)
         return runTest(mock).done.then(() => {
           assert.isTrue(mock.query().putAction(someAction).isPresent)
+          assert.equal(mock.query().putAction(someAction).count, 1)
           assert.isFalse(mock.query().putAction(otherAction).isPresent)
         })
       })
@@ -170,6 +174,7 @@ describe('mock saga', () => {
         const mock = mockSaga(toTest)
         return runTest(mock).done.then(() => {
           assert.isTrue(mock.query().putAction(someActionType).isPresent)
+          assert.equal(mock.query().putAction(someActionType).count, 1)
           assert.isFalse(mock.query().putAction(otherActionType).isPresent)
         })
       })
@@ -188,6 +193,7 @@ describe('mock saga', () => {
         store.dispatch(someAction)
         return task.done.then(() => {
           assert.isTrue(mock.query().takeAction(someActionType).isPresent)
+          assert.equal(mock.query().takeAction(someActionType).count, 1)
           assert.isFalse(mock.query().takeAction(otherActionType).isPresent)
         })
       })
@@ -243,7 +249,9 @@ describe('mock saga', () => {
         const mock = mockSaga(toTest)
         return runTest(mock).done.then(() => {
           assert.isTrue(mock.query().putAction(someAction).isPresent)
+          assert.equal(mock.query().putAction(someAction).count, 1)
           assert.isTrue(mock.query().putAction(otherAction).isPresent)
+          assert.equal(mock.query().putAction(otherAction).count, 1)
           assert.isFalse(mock.query().call(someObj.method).isPresent)
         })
       })
@@ -263,7 +271,9 @@ describe('mock saga', () => {
         const mock = mockSaga(toTest)
         return runTest(mock).done.then(() => {
           assert.isTrue(mock.query().putAction(someAction).isPresent)
+          assert.equal(mock.query().putAction(someAction).count, 1)
           assert.isTrue(mock.query().putAction(otherAction).isPresent)
+          assert.equal(mock.query().putAction(otherAction).count, 1)
           assert.isFalse(mock.query().call(someObj.method).isPresent)
         })
       })
@@ -284,7 +294,9 @@ describe('mock saga', () => {
         const mock = mockSaga(toTest)
         return runTest(mock).done.then(() => {
           assert.isTrue(mock.query().putAction(someAction).isPresent)
+          assert.equal(mock.query().putAction(someAction).count, 1)
           assert.isTrue(mock.query().putAction(otherAction).isPresent)
+          assert.equal(mock.query().putAction(otherAction).count, 1)
           assert.isFalse(mock.query().call(someObj.method).isPresent)
         })
       })

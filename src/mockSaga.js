@@ -95,6 +95,15 @@ const chainableMethods = [
   'clearStoredEffects'
 ]
 
+function isSaga (saga) {
+  return Array.isArray(saga) || saga instanceof GeneratorFunction || !!saga.next
+}
+
+/**
+ * Mocks an array of sagas. Every element that is not a saga (generator) is ignored.
+ * @param sagas
+ * @returns {*}
+ */
 function mockArray (sagas) {
   if (!Array.isArray(sagas)) throw new Error('sagas must be an array')
   if (sagas.length === 0) return sagas
@@ -107,10 +116,11 @@ function mockArray (sagas) {
       writable: false,
       value: (...args) => {
         if (args.length > 1 && _.isFunction(args[args.length - 1])) {
-          mockedArray.forEach(s => s[name](...args))
+          mockedArray.forEach(s => isSaga(s) && s[name](...args))
           return mockedArray
         } else {
-          return Promise.race(mockedArray.map(s => s[name](...args)))
+          const sagas = _.filter(mockedArray, isSaga)
+          return Promise.race(sagas.map(s => s[name](...args)))
         }
       }
     })
@@ -213,8 +223,19 @@ function mockGenerator (saga) {
     return _.set(cloned, 'CALL.fn', mockedSubGenFn)
   }
 
+  const stubArray = (effect) => {
+    console.log('stubbing array')
+    return effect.map(e => {
+      if (Array.isArray(e)) return stubArray(e)
+      if (e.next) return createGenerator(e, effects, lstPre, lstPost, stubs)()
+      if (e instanceof GeneratorFunction) return createGenerator(e, effects, lstPre, lstPost, stubs)
+      return e
+    })
+  }
+
   createStub(matchers.forkGeneratorFn(), stubFork)
   createStub(matchers.callGeneratorFn(), stubCallGeneratorFn)
+  createStub(matchers.array(), stubArray)
 
   const chainableMethods = {
     onEffect: (effect, callback) => addListener(retval, lstPre, callback, matchers.effect, effect),
@@ -234,7 +255,7 @@ function mockGenerator (saga) {
     stubCall: (fn, stub) => createStub(matchers.call(fn), stubCallCreator(stub)),
     stubCallWithArgs: (fn, args, stub) => createStub(matchers.callWithArgs(fn, args), stubCallCreator(stub)),
     stubCallWithExactArgs: (fn, args, stub) => createStub(matchers.callWithExactArgs(fn, args), stubCallCreator(stub)),
-    resetStubs: () => { stubs.length = 2; return retval },  // first 2 stubs is for forks and calls to generator
+    resetStubs: () => { stubs.length = 3; return retval },  // first 3 stubs are for forks, calls to generator and arrays
     clearStoredEffects: () => { effects.length = 0; return retval }
   }
 
