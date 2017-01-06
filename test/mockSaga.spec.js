@@ -94,8 +94,9 @@ describe('mock saga', () => {
 
   function buildTests (gfn) {
     return {
-      // 'generator function': gfn,
+      'generator function': gfn,
       'generator object': gfn(),
+      'plain array': [...gfn()],
       'array': [
         (function * () { yield 'dummy' })(),
         gfn(),
@@ -108,6 +109,13 @@ describe('mock saga', () => {
         yield effects.spawn(function * () {
           yield effects.call(gfn)
         })
+      },
+      'array inside generator': function * () {
+        yield [
+          effects.call(function dummyfn () {}),
+          gfn(),
+          (function * () { yield 'dummy' })()
+        ]
       }
     }
   }

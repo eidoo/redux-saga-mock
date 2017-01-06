@@ -3,9 +3,15 @@ import _ from 'lodash'
 const GeneratorFunction = function*() {}.constructor
 
 export function mockSaga (saga) {
+  const mock = mockIfSaga(saga)
+  if (mock === saga) throw new Error('saga must be a generator object, a generator function or an array')
+  return mock
+}
+
+function mockIfSaga (saga) {
   if (Array.isArray(saga)) return mockArray(saga)
   if (saga instanceof GeneratorFunction || saga.next) return mockGenerator(saga)
-  throw new Error('saga must be a generator object, a generator function or an array')
+  return saga
 }
 
 const isPUT = (effect) => _.isObject(effect) && effect['@@redux-saga/IO'] && effect.PUT
@@ -31,7 +37,9 @@ export const matchers = {
   forkGeneratorFn: () =>
     effect => isFORK(effect) && effect.FORK.fn instanceof GeneratorFunction,
   callGeneratorFn: () =>
-    effect => isCALL(effect) && effect.CALL.fn instanceof GeneratorFunction
+    effect => isCALL(effect) && effect.CALL.fn instanceof GeneratorFunction,
+  array: () =>
+    effect => _.isArray(effect)
 }
 
 function recursive (matcher) {
@@ -91,7 +99,7 @@ function mockArray (sagas) {
   if (!Array.isArray(sagas)) throw new Error('sagas must be an array')
   if (sagas.length === 0) return sagas
 
-  const mockedArray = sagas.map(s => mockSaga(s))
+  const mockedArray = sagas.map(s => mockIfSaga(s))
   chainableMethods.forEach(name => {
     Object.defineProperty(mockedArray, name, {
       configurable: false,
@@ -107,7 +115,7 @@ function mockArray (sagas) {
       }
     })
   })
-  const queryMethods = createQueryMethods(() => mockedArray.map(m => m.query().effects))
+  const queryMethods = createQueryMethods(() => mockedArray.map(m => (m.query && m.query().effects) || m))
   _.forEach(queryMethods, (fn, name) => {
     Object.defineProperty(mockedArray, name, {
       configurable: false,
