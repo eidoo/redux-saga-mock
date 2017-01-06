@@ -55,8 +55,8 @@ function recursive (matcher) {
   return rmatcher
 }
 
-function rreplace (matcher, effect, replEffCreator) {
-  if (matcher(effect)) return replEffCreator(effect)
+function rreplace (matcher, effect, replEffCreator, creatorArgs) {
+  if (matcher(effect)) return replEffCreator(effect, creatorArgs)
   else if (isRACE(effect)) {
     return Object.assign({}, effect, {
       RACE: _.mapValues(effect.RACE, (e) => rreplace(matcher, e, replEffCreator))
@@ -137,7 +137,7 @@ function mockArray (sagas) {
   return mockedArray
 }
 
-function createGenerator (saga, effects, listenersPre, listenersPost, stubs) {
+function createGenerator (saga, effects, listenersPre, listenersPost, stubs, log=false) {
   return function * mockedGenerator (...args) {
     if (saga instanceof GeneratorFunction) {
       saga = saga(...args)
@@ -145,10 +145,11 @@ function createGenerator (saga, effects, listenersPre, listenersPost, stubs) {
     let current = saga.next()
     while (!current.done) {
       const effect = current.value
-      // console.log('>> effect:', effect)
+      if (log) console.log('>> effect:', effect)
       effects.push(effect)
       listenersPre.forEach((l) => recursive(l.match)(effect) && l.callback(effect))
-      const stubbedEffect = stubs.reduce((seffect, stub) => rreplace(stub.match, seffect, stub.stubCreator), effect)
+      const stubEffect = (seffect, stub) => rreplace(stub.match, seffect, stub.stubCreator, { log })
+      const stubbedEffect = stubs.reduce(stubEffect, effect)
       try {
         const data = yield stubbedEffect
         listenersPost.forEach((l) => recursive(l.match)(effect) && l.callback({effect, data}))
@@ -211,15 +212,23 @@ function mockGenerator (saga) {
     return retval
   }
 
-  const stubFork = (effect) => {
+  const stubFork = (effect, { log }={}) => {
+    if (log) {
+      console.log('*** stubbing fork', JSON.stringify(effect))
+      console.log('@@@ stubbing fork', effect)
+      if (effect.FORK.fn instanceof GeneratorFunction) console.log('@@@ generator function')
+    }
     const cloned = _.cloneDeep(effect)
-    const mockedSubGenFn = createGenerator(effect.FORK.fn, effects, lstPre, lstPost, stubs)
+    const mockedSubGenFn = createGenerator(effect.FORK.fn, effects, lstPre, lstPost, stubs, !!log)
     return _.set(cloned, 'FORK.fn', mockedSubGenFn)
   }
 
   const stubCallGeneratorFn = (effect) => {
+    console.log('*** stubbing call', JSON.stringify(effect))
+    console.log('@@@ stubbing call', effect)
+    if (effect.CALL.fn instanceof GeneratorFunction) console.log('@@@ generator function')
     const cloned = _.cloneDeep(effect)
-    const mockedSubGenFn = createGenerator(effect.CALL.fn, effects, lstPre, lstPost, stubs)
+    const mockedSubGenFn = createGenerator(effect.CALL.fn, effects, lstPre, lstPost, stubs, true)
     return _.set(cloned, 'CALL.fn', mockedSubGenFn)
   }
 
