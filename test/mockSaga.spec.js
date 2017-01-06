@@ -1,7 +1,7 @@
 import _ from 'lodash'
 import { expect, assert } from 'chai'
-import { combineReducers, createStore, applyMiddleware } from 'redux'
-import createSagaMiddleware, { takeEvery } from 'redux-saga'
+import { createStore, applyMiddleware } from 'redux'
+import createSagaMiddleware from 'redux-saga'
 import * as effects from 'redux-saga/effects'
 
 import { mockSaga } from '../src/mockSaga'
@@ -44,7 +44,7 @@ describe('mock saga', () => {
       'stubCallWithArgs',
       'stubCallWithExactArgs',
       'resetStubs',
-      'clearStoredEffects',
+      'clearStoredEffects'
     ]
     const quertMethods = [
       'effect',
@@ -52,7 +52,7 @@ describe('mock saga', () => {
       'takeAction',
       'call',
       'callWithArgs',
-      'callWithExactArgs',
+      'callWithExactArgs'
     ]
     const methods = chainableMethods.concat('query')
 
@@ -90,7 +90,6 @@ describe('mock saga', () => {
         })
       })
     })
-
   })
 
   function buildTests (gfn) {
@@ -112,7 +111,7 @@ describe('mock saga', () => {
       }
     }
   }
-  const GeneratorFunction = (function*(){}).constructor;
+  const GeneratorFunction = function*() {}.constructor
   function runTest (test) {
     const gfn = test instanceof GeneratorFunction
       ? test
@@ -197,7 +196,6 @@ describe('mock saga', () => {
     }
     _.forEach(buildTests(saga), (toTest, name) => {
       it(`on ${name}`, () => {
-        const isArray = name === 'array'
         const mock = mockSaga(toTest)
         return runTest(mock).done.then(() => {
           assert.isTrue(mock.query().call(someObj.method).isPresent)
@@ -548,7 +546,7 @@ describe('mock saga', () => {
   })
 
   it('test', () => {
-    let flag = false;
+    let flag = false
     let obj = {
       pippo (arg) {
         return arg + 1
@@ -613,7 +611,7 @@ describe('mock saga', () => {
       r = yield effects.race({
         a: effects.call(obj.pippo, 100),
         c: effects.call(obj.pippo, 200),
-        b: effects.take(otherActionType),
+        b: effects.take(otherActionType)
       })
       console.log('-- result', r)
 
@@ -623,7 +621,7 @@ describe('mock saga', () => {
       ]
       console.log('-- result', r)
 
-      flag = true;
+      flag = true
     }
     const mock = mockSaga(sagas)
     mock
@@ -641,5 +639,4 @@ describe('mock saga', () => {
       expect(mock.query().effect('stringa').followedBy.takeAction(someActionType).isPresent).to.be.true
     })
   })
-
 })

@@ -1,6 +1,6 @@
 import _ from 'lodash'
 
-const GeneratorFunction = (function*(){}).constructor;
+const GeneratorFunction = function*() {}.constructor
 
 export function mockSaga (saga) {
   if (Array.isArray(saga)) return mockArray(saga)
@@ -34,7 +34,7 @@ export const matchers = {
     effect => isCALL(effect) && effect.CALL.fn instanceof GeneratorFunction
 }
 
-function recursive(matcher) {
+function recursive (matcher) {
   const rmatcher = (effect) => {
     if (matcher(effect)) return true
     else if (isRACE(effect)) {
@@ -59,9 +59,9 @@ function rreplace (matcher, effect, replEffCreator) {
   return effect
 }
 
-function findAllIndexes (array, matcher, fromPos=0, last=(array.length-1)) {
+function findAllIndexes (array, matcher, fromPos = 0, last = (array.length - 1)) {
   const indexes = []
-  for (let i=fromPos; i <= last; i++) {
+  for (let i = fromPos; i <= last; i++) {
     if (matcher(array[i])) indexes.push(i)
   }
   return indexes
@@ -143,7 +143,7 @@ function createGenerator (saga, effects, listenersPre, listenersPost, stubs) {
   }
 }
 
-function stubCallCreator(newTargetFn) {
+function stubCallCreator (newTargetFn) {
   return effect => {
     let cloned = _.cloneDeep(effect)
     return _.set(cloned, 'CALL.fn', newTargetFn)

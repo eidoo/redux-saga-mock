@@ -51,13 +51,13 @@ describe('unit tests', () => {
       { arg: { type: 'TEST' }, effectToCheck: effects.put({ type: 'test' }), expected: false },
       { arg: { type: 'TEST' }, effectToCheck: effects.take('TEST'), expected: false },
       { arg: { type: 'TEST' }, effectToCheck: { type: 'TEST' }, expected: false },
-      { arg: { type: 'TEST' }, effectToCheck: 'TEST', expected: false },
+      { arg: { type: 'TEST' }, effectToCheck: 'TEST', expected: false }
     ],
     takeAction: [
       { arg: 'TEST', effectToCheck: effects.take('TEST'), expected: true },
       { arg: 'TEST', effectToCheck: effects.take('test'), expected: false },
       { arg: 'TEST', effectToCheck: effects.put({ type: 'TEST' }), expected: false },
-      { arg: 'TEST', effectToCheck: { type: 'TEST' }, expected: false },
+      { arg: 'TEST', effectToCheck: { type: 'TEST' }, expected: false }
     ],
     effect: [
       { arg: effects.take('TEST'), effectToCheck: effects.take('TEST'), expected: true },
@@ -66,42 +66,42 @@ describe('unit tests', () => {
       { arg: effects.take('TEST'), effectToCheck: effects.take('test'), expected: false },
       { arg: effects.put({type: 'TEST'}), effectToCheck: effects.put({type: 'test'}), expected: false },
       { arg: effects.call(DUMMY_FN, 1), effectToCheck: effects.call(DUMMY_FN), expected: false },
-      { arg: effects.call(DUMMY_FN, 1), effectToCheck: effects.call(DUMMY_FN, 1, 2), expected: false },
+      { arg: effects.call(DUMMY_FN, 1), effectToCheck: effects.call(DUMMY_FN, 1, 2), expected: false }
     ],
     call: [
       { arg: DUMMY_FN, effectToCheck: effects.call(DUMMY_FN, 1), expected: true },
       { arg: DUMMY_FN, effectToCheck: effects.call(DUMMY_FN), expected: true },
       { arg: DUMMY_FN, effectToCheck: effects.call(DUMMY_FN, 1, 2), expected: true },
       { arg: DUMMY_FN, effectToCheck: effects.call(() => {}, 1), expected: false },
-      { arg: DUMMY_FN, effectToCheck: effects.take('test'), expected: false },
+      { arg: DUMMY_FN, effectToCheck: effects.take('test'), expected: false }
     ],
     callWithArgs: [
       { args: [DUMMY_FN, [1]], effectToCheck: effects.call(DUMMY_FN, 1), expected: true },
       { args: [DUMMY_FN, [1]], effectToCheck: effects.call(DUMMY_FN), expected: false },
       { args: [DUMMY_FN, [1]], effectToCheck: effects.call(DUMMY_FN, 1, 2), expected: true },
       { args: [DUMMY_FN, [1]], effectToCheck: effects.call(() => {}, 1), expected: false },
-      { args: [DUMMY_FN, [1]], effectToCheck: effects.take('test'), expected: false },
+      { args: [DUMMY_FN, [1]], effectToCheck: effects.take('test'), expected: false }
     ],
     callWithExactArgs: [
       { args: [DUMMY_FN, [1]], effectToCheck: effects.call(DUMMY_FN, 1), expected: true },
       { args: [DUMMY_FN, [1]], effectToCheck: effects.call(DUMMY_FN), expected: false },
       { args: [DUMMY_FN, [1]], effectToCheck: effects.call(DUMMY_FN, 1, 2), expected: false },
       { args: [DUMMY_FN, [1]], effectToCheck: effects.call(() => {}, 1), expected: false },
-      { args: [DUMMY_FN, [1]], effectToCheck: effects.take('test'), expected: false },
+      { args: [DUMMY_FN, [1]], effectToCheck: effects.take('test'), expected: false }
     ],
     forkGeneratorFn: [
       { args: [], effectToCheck: effects.fork(DUMMY_GEN_FN), expected: true },
       { args: [], effectToCheck: effects.fork(DUMMY_FN), expected: false },
       { args: [], effectToCheck: effects.call(DUMMY_GEN_FN), expected: false },
       { args: [], effectToCheck: effects.call(DUMMY_FN), expected: false },
-      { args: [], effectToCheck: effects.take('test'), expected: false },
+      { args: [], effectToCheck: effects.take('test'), expected: false }
     ],
     callGeneratorFn: [
       { args: [], effectToCheck: effects.fork(DUMMY_GEN_FN), expected: false },
       { args: [], effectToCheck: effects.fork(DUMMY_FN), expected: false },
       { args: [], effectToCheck: effects.call(DUMMY_GEN_FN), expected: true },
       { args: [], effectToCheck: effects.call(DUMMY_FN), expected: false },
-      { args: [], effectToCheck: effects.take('test'), expected: false },
+      { args: [], effectToCheck: effects.take('test'), expected: false }
     ]
   }
 
@@ -171,18 +171,18 @@ describe('unit tests', () => {
       { effect: [MATCH, OTHER, MATCH, OTHER, MATCH], expected: [REPLACED, OTHER, REPLACED, OTHER, REPLACED] },
       { effect: [OTHER, OTHER], expected: [OTHER, OTHER] },
       {
-        effect:   effects.race({a: OTHER, b: MATCH,    c: OTHER}),
+        effect: effects.race({a: OTHER, b: MATCH, c: OTHER}),
         expected: effects.race({a: OTHER, b: REPLACED, c: OTHER})
       }, {
-        effect:   effects.race({a: MATCH,    b: OTHER, c: MATCH,    d: OTHER}),
+        effect: effects.race({a: MATCH, b: OTHER, c: MATCH, d: OTHER}),
         expected: effects.race({a: REPLACED, b: OTHER, c: REPLACED, d: OTHER})
       }, {
-        effect:   effects.race({a: OTHER, b: OTHER, c: OTHER}),
-        expected: effects.race({a: OTHER, b: OTHER, c:  OTHER})
+        effect: effects.race({a: OTHER, b: OTHER, c: OTHER}),
+        expected: effects.race({a: OTHER, b: OTHER, c: OTHER})
       }, {
-        effect:   [OTHER, effects.race({a: OTHER, b: MATCH,    c: OTHER}), OTHER],
+        effect: [OTHER, effects.race({a: OTHER, b: MATCH, c: OTHER}), OTHER],
         expected: [OTHER, effects.race({a: OTHER, b: REPLACED, c: OTHER}), OTHER]
-      },
+      }
     ]
     testCases.forEach(({effect, expected}, idx) => {
       it(`test ${idx + 1}`, () => {
@@ -197,25 +197,25 @@ describe('unit tests', () => {
     const testCases = [
       { array: [], expected: [] },
       { array: [1], expected: [0] },
-      { array: [1,1], expected: [0,1] },
-      { array: [1,1,1], expected: [0,1,2] },
-      { array: [0,0,0], expected: [] },
-      { array: [1,0,1], expected: [0,2] },
-      { array: [0,1,0], expected: [1] },
-      { array: [0,1,1,0], expected: [1,2] },
-      { array: [1,1,1,0], from: 1, expected: [1,2] },
-      { array: [0,1,1,1], last: 2, expected: [1,2] },
-      { array: [1,1,1,1], from: 1, last: 2, expected: [1,2] },
-      { array: [1,0,0,1], from: 1, last: 2, expected: [] },
+      { array: [1, 1], expected: [0, 1] },
+      { array: [1, 1, 1], expected: [0, 1, 2] },
+      { array: [0, 0, 0], expected: [] },
+      { array: [1, 0, 1], expected: [0, 2] },
+      { array: [0, 1, 0], expected: [1] },
+      { array: [0, 1, 1, 0], expected: [1, 2] },
+      { array: [1, 1, 1, 0], from: 1, expected: [1, 2] },
+      { array: [0, 1, 1, 1], last: 2, expected: [1, 2] },
+      { array: [1, 1, 1, 1], from: 1, last: 2, expected: [1, 2] },
+      { array: [1, 0, 0, 1], from: 1, last: 2, expected: [] }
     ]
     testCases.forEach(({array, expected, from, last}, idx) => {
       it(`test ${idx + 1}`, () => {
-        const actual = findAllIndexes(array, v => !!v, from, last )
+        const actual = findAllIndexes(array, v => !!v, from, last)
         assert.deepEqual(actual, expected)
       })
     })
   })
-  
+
   describe('addListener()', () => {
     const addListener = mockSaga.__get__('addListener')
     let target
