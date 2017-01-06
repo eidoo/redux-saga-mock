@@ -3,15 +3,9 @@ import _ from 'lodash'
 const GeneratorFunction = function*() {}.constructor
 
 export function mockSaga (saga) {
-  const mock = mockIfSaga(saga)
-  if (mock === saga) throw new Error('saga must be a generator object, a generator function or an array')
-  return mock
-}
-
-function mockIfSaga (saga) {
   if (Array.isArray(saga)) return mockArray(saga)
   if (saga instanceof GeneratorFunction || saga.next) return mockGenerator(saga)
-  return saga
+  throw new Error('saga must be a generator object, a generator function or an array')
 }
 
 const isPUT = (effect) => _.isObject(effect) && effect['@@redux-saga/IO'] && effect.PUT
@@ -100,15 +94,15 @@ function isSaga (saga) {
 }
 
 /**
- * Mocks an array of sagas. Every element that is not a saga (generator) is ignored.
+ * Mocks an array of sagas. Every element must be a generator.
  * @param sagas
- * @returns {*}
+ * @returns {array}
  */
 function mockArray (sagas) {
   if (!Array.isArray(sagas)) throw new Error('sagas must be an array')
   if (sagas.length === 0) return sagas
 
-  const mockedArray = sagas.map(s => mockIfSaga(s))
+  const mockedArray = sagas.map(s => mockSaga(s))
   chainableMethods.forEach(name => {
     Object.defineProperty(mockedArray, name, {
       configurable: false,
@@ -116,16 +110,15 @@ function mockArray (sagas) {
       writable: false,
       value: (...args) => {
         if (args.length > 1 && _.isFunction(args[args.length - 1])) {
-          mockedArray.forEach(s => isSaga(s) && s[name](...args))
+          mockedArray.forEach(s => s[name](...args))
           return mockedArray
         } else {
-          const sagas = _.filter(mockedArray, isSaga)
-          return Promise.race(sagas.map(s => s[name](...args)))
+          return Promise.race(mockedArray.map(s => s[name](...args)))
         }
       }
     })
   })
-  const queryMethods = createQueryMethods(() => mockedArray.map(m => (m.query && m.query().effects) || m))
+  const queryMethods = createQueryMethods(() => mockedArray.map(m => m.query().effects))
   _.forEach(queryMethods, (fn, name) => {
     Object.defineProperty(mockedArray, name, {
       configurable: false,
