@@ -103,7 +103,13 @@ describe('mock saga', () => {
         (function * () { yield 'dummy' })()
       ],
       'fork': function * () { yield effects.fork(gfn) },
-      'spawn': function * () { yield effects.spawn(gfn) }
+      'spawn': function * () { yield effects.spawn(gfn) },
+      'call': function * () { yield effects.call(gfn) },
+      'call inside spawn': function * () {
+        yield effects.spawn(function * () {
+          yield effects.call(gfn)
+        })
+      }
     }
   }
   const GeneratorFunction = (function*(){}).constructor;

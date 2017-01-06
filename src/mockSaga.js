@@ -29,7 +29,9 @@ export const matchers = {
   callWithExactArgs: (fn, args) =>
     effect => isCALL(effect) && effect.CALL.fn === fn && _.isEqual(effect.CALL.args, args),
   forkGeneratorFn: () =>
-    effect => isFORK(effect) && effect.FORK.fn instanceof GeneratorFunction
+    effect => isFORK(effect) && effect.FORK.fn instanceof GeneratorFunction,
+  callGeneratorFn: () =>
+    effect => isCALL(effect) && effect.CALL.fn instanceof GeneratorFunction
 }
 
 function recursive(matcher) {
@@ -197,7 +199,14 @@ function mockGenerator (saga) {
     return _.set(cloned, 'FORK.fn', mockedSubGenFn)
   }
 
+  const stubCallGeneratorFn = (effect) => {
+    const cloned = _.cloneDeep(effect)
+    const mockedSubGenFn = createGenerator(effect.CALL.fn, effects, lstPre, lstPost, stubs)
+    return _.set(cloned, 'CALL.fn', mockedSubGenFn)
+  }
+
   createStub(matchers.forkGeneratorFn(), stubFork)
+  createStub(matchers.callGeneratorFn(), stubCallGeneratorFn)
 
   const chainableMethods = {
     onEffect: (effect, callback) => addListener(retval, lstPre, callback, matchers.effect, effect),
@@ -217,7 +226,7 @@ function mockGenerator (saga) {
     stubCall: (fn, stub) => createStub(matchers.call(fn), stubCallCreator(stub)),
     stubCallWithArgs: (fn, args, stub) => createStub(matchers.callWithArgs(fn, args), stubCallCreator(stub)),
     stubCallWithExactArgs: (fn, args, stub) => createStub(matchers.callWithExactArgs(fn, args), stubCallCreator(stub)),
-    resetStubs: () => { stubs.length = 1; return retval },  // first stub is for forks
+    resetStubs: () => { stubs.length = 2; return retval },  // first 2 stubs is for forks and calls to generator
     clearStoredEffects: () => { effects.length = 0; return retval }
   }
 

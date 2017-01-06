@@ -36,6 +36,7 @@ describe('unit tests', () => {
   const matchers = mockSaga.__get__('matchers')
 
   const DUMMY_FN = () => {}
+  const DUMMY_GEN_FN = function * () {}
 
   const matcherTestCases = {
     putAction: [
@@ -87,6 +88,20 @@ describe('unit tests', () => {
       { args: [DUMMY_FN, [1]], effectToCheck: effects.call(DUMMY_FN, 1, 2), expected: false },
       { args: [DUMMY_FN, [1]], effectToCheck: effects.call(() => {}, 1), expected: false },
       { args: [DUMMY_FN, [1]], effectToCheck: effects.take('test'), expected: false },
+    ],
+    forkGeneratorFn: [
+      { args: [], effectToCheck: effects.fork(DUMMY_GEN_FN), expected: true },
+      { args: [], effectToCheck: effects.fork(DUMMY_FN), expected: false },
+      { args: [], effectToCheck: effects.call(DUMMY_GEN_FN), expected: false },
+      { args: [], effectToCheck: effects.call(DUMMY_FN), expected: false },
+      { args: [], effectToCheck: effects.take('test'), expected: false },
+    ],
+    callGeneratorFn: [
+      { args: [], effectToCheck: effects.fork(DUMMY_GEN_FN), expected: false },
+      { args: [], effectToCheck: effects.fork(DUMMY_FN), expected: false },
+      { args: [], effectToCheck: effects.call(DUMMY_GEN_FN), expected: true },
+      { args: [], effectToCheck: effects.call(DUMMY_FN), expected: false },
+      { args: [], effectToCheck: effects.take('test'), expected: false },
     ]
   }
 
