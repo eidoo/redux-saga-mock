@@ -2,6 +2,24 @@ import _ from 'lodash'
 
 const GeneratorFunction = function*() {}.constructor
 
+function memoize(func) {
+  if (typeof func != 'function') throw new Error('argument must be a function')
+
+  const cache = new WeakMap()
+  const memoized = (...args) => {
+    const subcache = args.reduce((_cache, arg) => {
+      let item = _cache.get(arg)
+      if (!item) {
+        item = new WeakMap()
+        cache.set(arg, item)
+      }
+      return item
+    }, cache)
+    if (!subcache.cachedValue) subcache.cachedValue = func(...args)
+    return subcache.cachedValue
+  }
+}
+
 export function mockSaga (saga) {
   if (Array.isArray(saga)) return mockArray(saga)
   if (saga instanceof GeneratorFunction || saga.next) return mockGenerator(saga)
@@ -22,7 +40,7 @@ export const matchers = {
     effect => isTAKE(effect) && effect.TAKE.pattern === pattern,
   effect: effectToMatch =>
     effect => _.isEqual(effect, effectToMatch),
-  call: _.memoize((fn) =>
+  call: memoize((fn) =>
     effect => isCALL(effect) && effect.CALL.fn === fn),
   callWithArgs: (fn, args) =>
     effect => isCALL(effect) && effect.CALL.fn === fn && _.isMatch(effect.CALL.args, args),
