@@ -22,8 +22,8 @@ export const matchers = {
     effect => isTAKE(effect) && effect.TAKE.pattern === pattern,
   effect: effectToMatch =>
     effect => _.isEqual(effect, effectToMatch),
-  call: fn =>
-    effect => isCALL(effect) && effect.CALL.fn === fn,
+  call: _.memoize((fn) =>
+    effect => isCALL(effect) && effect.CALL.fn === fn),
   callWithArgs: (fn, args) =>
     effect => isCALL(effect) && effect.CALL.fn === fn && _.isMatch(effect.CALL.args, args),
   callWithExactArgs: (fn, args) =>
@@ -195,7 +195,8 @@ function mockGenerator (saga) {
   const createStub = (matcher, stubCreator) => {
     if (!_.isFunction(stubCreator)) throw new Error('stub function required')
     const s = { match: matcher, stubCreator }
-    // FIXME replacement doesn't work because the macher is created on every call
+    // FIXME replacement works only with stubCall because its matcher is memoized and in the other cases
+    // the macher is created on every call
     const pos = _.findIndex(stubs, matcher)
     if (pos !== -1) {
       stubs[pos] = s
