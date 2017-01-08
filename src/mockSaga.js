@@ -142,6 +142,7 @@ function createGenerator (saga, effects, listenersPre, listenersPost, stubs) {
       effects.push(effect)
       listenersPre.forEach((l) => recursive(l.match)(effect) && l.callback(effect))
       const stubbedEffect = stubs.reduce((seffect, stub) => rreplace(stub.match, seffect, stub.stubCreator), effect)
+      // if (stubbedEffect !== effect) console.log('>>>> stubbed effect:', stubbedEffect)
       try {
         const data = yield stubbedEffect
         listenersPost.forEach((l) => recursive(l.match)(effect) && l.callback({effect, data}))
@@ -199,7 +200,7 @@ function mockGenerator (saga) {
     if (pos !== -1) {
       stubs[pos] = s
     } else {
-      stubs.push(s)
+      stubs.unshift(s)
     }
     return retval
   }
@@ -217,7 +218,6 @@ function mockGenerator (saga) {
   }
 
   const stubArray = (effect) => {
-    console.log('stubbing array')
     return effect.map(e => {
       if (Array.isArray(e)) return stubArray(e)
       if (e.next) return createGenerator(e, effects, lstPre, lstPost, stubs)()
@@ -248,7 +248,7 @@ function mockGenerator (saga) {
     stubCall: (fn, stub) => createStub(matchers.call(fn), stubCallCreator(stub)),
     stubCallWithArgs: (fn, args, stub) => createStub(matchers.callWithArgs(fn, args), stubCallCreator(stub)),
     stubCallWithExactArgs: (fn, args, stub) => createStub(matchers.callWithExactArgs(fn, args), stubCallCreator(stub)),
-    resetStubs: () => { stubs.length = 3; return retval },  // first 3 stubs are for forks, calls to generator and arrays
+    resetStubs: () => { stubs.splice(stubs.length - 3, 3); return retval },  // last 3 stubs are for forks, calls to generator and arrays
     clearStoredEffects: () => { effects.length = 0; return retval }
   }
 
