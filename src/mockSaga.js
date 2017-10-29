@@ -28,6 +28,8 @@ export const matchers = {
     effect => isCALL(effect) && effect.CALL.fn === fn && _.isMatch(effect.CALL.args, args),
   callWithExactArgs: (fn, args) =>
     effect => isCALL(effect) && effect.CALL.fn === fn && _.isEqual(effect.CALL.args, args),
+  fork: (fn) => 
+    effect => isFORK(effect) && effect.FORK.fn === fn,
   forkGeneratorFn: () =>
     effect => isFORK(effect) && effect.FORK.fn instanceof GeneratorFunction,
   callGeneratorFn: () =>
@@ -85,6 +87,7 @@ const chainableMethods = [
   'stubCall',
   'stubCallWithArgs',
   'stubCallWithExactArgs',
+  'stubFork',
   'resetStubs',
   'clearStoredEffects'
 ]
@@ -159,6 +162,13 @@ function stubCallCreator (newTargetFn) {
   return effect => {
     let cloned = _.cloneDeep(effect)
     return _.set(cloned, 'CALL.fn', newTargetFn)
+  }
+}
+
+function stubForkCreator (newTargetFn) {
+  return effect => {
+    let cloned = _.cloneDeep(effect)
+    return _.set(cloned, 'FORK.fn', newTargetFn)
   }
 }
 
@@ -249,6 +259,7 @@ function mockGenerator (saga) {
     stubCall: (fn, stub) => createStub(matchers.call(fn), stubCallCreator(stub)),
     stubCallWithArgs: (fn, args, stub) => createStub(matchers.callWithArgs(fn, args), stubCallCreator(stub)),
     stubCallWithExactArgs: (fn, args, stub) => createStub(matchers.callWithExactArgs(fn, args), stubCallCreator(stub)),
+    stubFork: (fn, stub) => createStub(matchers.fork(fn), stubForCreator(stub)),
     resetStubs: () => { stubs.splice(stubs.length - 3, 3); return retval },  // last 3 stubs are for forks, calls to generator and arrays
     clearStoredEffects: () => { effects.length = 0; return retval }
   }
