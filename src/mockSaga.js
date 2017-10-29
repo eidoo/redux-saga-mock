@@ -259,7 +259,7 @@ function mockGenerator (saga) {
     stubCall: (fn, stub) => createStub(matchers.call(fn), stubCallCreator(stub)),
     stubCallWithArgs: (fn, args, stub) => createStub(matchers.callWithArgs(fn, args), stubCallCreator(stub)),
     stubCallWithExactArgs: (fn, args, stub) => createStub(matchers.callWithExactArgs(fn, args), stubCallCreator(stub)),
-    stubFork: (fn, stub) => createStub(matchers.fork(fn), stubForCreator(stub)),
+    stubFork: (fn, stub) => createStub(matchers.fork(fn), stubForkCreator(stub)),
     resetStubs: () => { stubs.splice(stubs.length - 3, 3); return retval },  // last 3 stubs are for forks, calls to generator and arrays
     clearStoredEffects: () => { effects.length = 0; return retval }
   }
