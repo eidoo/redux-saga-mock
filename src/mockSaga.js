@@ -13,6 +13,7 @@ const isTAKE = (effect) => _.isObject(effect) && effect['@@redux-saga/IO'] && ef
 const isCALL = (effect) => _.isObject(effect) && effect['@@redux-saga/IO'] && effect.CALL
 const isRACE = (effect) => _.isObject(effect) && effect['@@redux-saga/IO'] && effect.RACE
 const isFORK = (effect) => _.isObject(effect) && effect['@@redux-saga/IO'] && effect.FORK
+const isALL = (effect) => _.isObject(effect) && effect['@@redux-saga/IO'] && effect.ALL
 
 export const matchers = {
   putAction: (action) => _.isString(action)
@@ -59,6 +60,10 @@ function rreplace (matcher, effect, replEffCreator) {
     })
   } else if (_.isArray(effect)) {
     return _.map(effect, (e) => rreplace(matcher, e, replEffCreator))
+  } else if (isALL(effect)) {
+    return Object.assign({}, effect, {
+      ALL: rreplace(matcher, effect.ALL, replEffCreator)
+    })
   }
   return effect
 }
