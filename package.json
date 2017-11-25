@@ -4,7 +4,7 @@
   "description": "Testing helper for redux-saga",
   "main": "dist/mockSaga.js",
   "scripts": {
-    "prepublish": "npm test && npm run compile",
+    "prepare": "npm test && npm run compile",
     "test": "BABEL_ENV='test' mocha --compilers js:babel-register",
     "compile": "babel -d dist/ src/",
     "build": ":"
